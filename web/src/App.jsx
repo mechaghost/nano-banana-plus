@@ -235,41 +235,17 @@ function App() {
                 <span>Auto-Save Directory Path <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}>(Optional)</span></span>
                 {autoSaveDirInput ? <span style={{ fontSize: '0.8rem', color: 'var(--success-color, #4ade80)' }}>✓ Active</span> : <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Disabled</span>}
               </label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input
-                  type="text"
-                  placeholder="/Users/username/Desktop/AI_Generations"
-                  value={autoSaveDirInput}
-                  onChange={(e) => setAutoSaveDirInput(e.target.value)}
-                  style={{
-                    fontStyle: !autoSaveDirInput ? 'italic' : 'normal',
-                    flex: 1
-                  }}
-                />
-                <button
-                  className="btn btn-secondary"
-                  style={{ whiteSpace: 'nowrap' }}
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    try {
-                      const res = await fetch('http://127.0.0.1:43211/api/v1/browse-folder');
-                      if (res.ok) {
-                        const data = await res.json();
-                        if (data.path) {
-                          setAutoSaveDirInput(data.path);
-                        }
-                      }
-                    } catch (err) {
-                      console.error("Failed to open dialog", err);
-                      alert("Could not open native folder picker. Make sure the backend server is running.");
-                    }
-                  }}
-                >
-                  Browse...
-                </button>
-              </div>
+              <input
+                type="text"
+                placeholder="/Users/username/Desktop/AI_Generations"
+                value={autoSaveDirInput}
+                onChange={(e) => setAutoSaveDirInput(e.target.value)}
+                style={{
+                  fontStyle: !autoSaveDirInput ? 'italic' : 'normal'
+                }}
+              />
               <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
-                Click "Browse..." or manually paste an absolute folder path. Leave completely blank to disable auto-saving.
+                Paste the absolute folder path. Leave completely blank to disable auto-saving.
               </small>
             </div>
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
