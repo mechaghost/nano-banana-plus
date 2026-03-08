@@ -270,6 +270,17 @@ function App() {
             </select>
           </div>
 
+          <div className="input-group">
+            <label>Aspect Ratio</label>
+            <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
+              <option value="1:1">1:1 (Square)</option>
+              <option value="3:4">3:4 (Portrait)</option>
+              <option value="4:3">4:3 (Landscape)</option>
+              <option value="9:16">9:16 (Vertical Portrait)</option>
+              <option value="16:9">16:9 (Widescreen)</option>
+            </select>
+          </div>
+
           <div
             className="input-group dropzone"
             onDragOver={(e) => e.preventDefault()}
