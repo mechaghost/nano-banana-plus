@@ -41,10 +41,8 @@ def init_gemini_client():
 
 init_gemini_client()
 
-class GenerateRequest(BaseModel):
-    prompt: str
-    model: str = "imagen-4.0-generate-001" # Or imagen-4.0-fast-generate-001
-    aspect_ratio: str = "1:1"
+# We will use Form and File parameters instead of a JSON BaseModel so we can accept images.
+# Removed GenerateRequest model to support multipart/form-data.
 
 class ConfigRequest(BaseModel):
     api_key: str
@@ -78,24 +76,48 @@ def set_config(request: ConfigRequest):
     return {"status": "success", "has_api_key": client is not None}
 
 @app.post("/api/v1/generate")
-def generate_image(request: GenerateRequest):
+async def generate_image(
+    prompt: str = Form(...),
+    model: str = Form("imagen-4.0-generate-001"),
+    aspect_ratio: str = Form("1:1"),
+    file: UploadFile = File(None)
+):
     if client is None:
         raise HTTPException(status_code=500, detail="Gemini Client is not configured. Missing GEMINI_API_KEY.")
     
     try:
-        # We need to map the prompt to Gemini generate parameters.
-        result = client.models.generate_images(
-            model=request.model,
-            prompt=request.prompt,
-            config=types.GenerateImagesConfig(
-                number_of_images=1,
-                aspect_ratio=request.aspect_ratio,
-                output_mime_type="image/png"
-            )
+        # Load the base image if provided
+        base_image = None
+        if file:
+            contents = await file.read()
+            base_image = Image.open(io.BytesIO(contents))
+        
+        # Configure Gemini parameters
+        config = types.GenerateImagesConfig(
+            number_of_images=1,
+            aspect_ratio=aspect_ratio,
+            output_mime_type="image/png"
         )
         
+        # If there's a base image (image-to-image), we pass it as a list with the prompt
+        if base_image:
+            # Note: For image-to-image, Gemini expects the Image object directly
+            inputs = [prompt, base_image]
+            result = client.models.generate_images(
+                model=model,
+                prompt=inputs,
+                config=config
+            )
+        else:
+            # Standard Text-to-Image
+            result = client.models.generate_images(
+                model=model,
+                prompt=prompt,
+                config=config
+            )
+        
         # Generated image bytes
-        if len(result.generated_images) == 0:
+        if not result.generated_images or len(result.generated_images) == 0:
             raise HTTPException(status_code=500, detail="No images generated.")
             
         generated_image = result.generated_images[0]

@@ -15,6 +15,8 @@ function App() {
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null);
+  const [baseImageFile, setBaseImageFile] = useState(null);
+  const genFileInputRef = useRef(null);
 
   // Processing State
   const [isProcessing, setIsProcessing] = useState(false);
@@ -118,10 +120,19 @@ function App() {
         return;
       }
 
+      const formData = new FormData();
+      formData.append('prompt', prompt);
+      formData.append('model', model);
+      formData.append('aspect_ratio', aspectRatio);
+
+      if (baseImageFile) {
+        formData.append('file', baseImageFile);
+      }
+
       const response = await fetch('http://127.0.0.1:43211/api/v1/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, model, aspect_ratio: aspectRatio }),
+        // No Content-Type header needed for FormData; browser sets it with boundary
+        body: formData,
       });
 
       if (!response.ok) throw new Error('Generation failed');
@@ -135,7 +146,7 @@ function App() {
 
     } catch (error) {
       console.error(error);
-      alert('Failed to generate image. Make sure the server is running and GEMINI_API_KEY is active.');
+      alert('Failed to generate image. Make sure the server is running and your prompt/image meet the API guidelines.');
     } finally {
       setIsGenerating(false);
     }
@@ -166,10 +177,10 @@ function App() {
     }
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = (e, setter) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setSourceImageFile(e.dataTransfer.files[0]);
+      setter(e.dataTransfer.files[0]);
     }
   };
 
@@ -259,6 +270,51 @@ function App() {
             </select>
           </div>
 
+          <div
+            className="input-group dropzone"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => handleDrop(e, setBaseImageFile)}
+            onClick={() => genFileInputRef.current?.click()}
+            style={{
+              cursor: 'pointer',
+              padding: '1rem',
+              border: '1px dashed var(--panel-border)',
+              borderRadius: '8px',
+              textAlign: 'center',
+              marginBottom: '1rem'
+            }}
+          >
+            <input
+              type="file"
+              ref={genFileInputRef}
+              onChange={(e) => setBaseImageFile(e.target.files[0])}
+              accept="image/*"
+              style={{ display: 'none' }}
+            />
+            {baseImageFile ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{baseImageFile.name} (Ready)</span>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setBaseImageFile(null);
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+            ) : (
+              <div>
+                <UploadCloud size={20} style={{ marginBottom: '0.5rem', color: 'var(--text-secondary)' }} />
+                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                  Optional: Drop a base image here or click to upload
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             className="btn btn-primary"
             onClick={handleGenerate}
@@ -306,7 +362,7 @@ function App() {
           <div
             className="preview-container dropzone"
             onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
+            onDrop={(e) => handleDrop(e, setSourceImageFile)}
             onClick={() => !processedImage && fileInputRef.current?.click()}
             style={{ cursor: processedImage ? 'default' : 'pointer' }}
           >
