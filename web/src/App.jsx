@@ -233,34 +233,39 @@ function App() {
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
-                if (e.dataTransfer) {
-                  // Mac Finder drops often contain the absolute path as a file URI
-                  const uriList = e.dataTransfer.getData("text/uri-list");
-                  if (uriList && uriList.startsWith("file://")) {
-                    // Extract path and decode special characters like spaces
-                    let path = decodeURI(uriList.replace('file://', '').trim());
-                    // Edge case: Sometimes file URIs include localhost
-                    if (path.startsWith("localhost/")) path = path.replace("localhost", "");
-                    setAutoSaveDirInput(path);
-                    return;
-                  }
+                try {
+                  if (e.dataTransfer) {
+                    // Mac Finder drops often contain the absolute path as a file URI
+                    const uriList = e.dataTransfer.getData("text/uri-list");
+                    if (uriList && uriList.startsWith("file://")) {
+                      // Extract path and decode special characters like spaces
+                      let path = decodeURI(uriList.replace('file://', '').trim());
+                      // Edge case: Sometimes file URIs include localhost
+                      if (path.startsWith("localhost/")) path = path.replace("localhost", "");
+                      setAutoSaveDirInput(path);
+                      return;
+                    }
 
-                  // Text fallback
-                  const plain = e.dataTransfer.getData("text/plain");
-                  if (plain) {
-                    setAutoSaveDirInput(plain.trim());
-                    return;
-                  }
+                    // Text fallback
+                    const plain = e.dataTransfer.getData("text/plain");
+                    if (plain) {
+                      setAutoSaveDirInput(plain.trim());
+                      return;
+                    }
 
-                  // File fallback (Chromium/Electron might expose .path)
-                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                    const f = e.dataTransfer.files[0];
-                    if (f.path) {
-                      setAutoSaveDirInput(f.path);
-                    } else {
-                      alert("Your browser sandbox blocked the absolute folder path. Please right-click the folder in Finder, hold Option, and click 'Copy as Pathname'.");
+                    // File fallback (Chromium/Electron might expose .path)
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                      const f = e.dataTransfer.files[0];
+                      if (f.path) {
+                        setAutoSaveDirInput(f.path);
+                      } else {
+                        alert("Your browser sandbox blocked the absolute folder path. Please right-click the folder in Finder, hold Option, and click 'Copy as Pathname'.");
+                      }
                     }
                   }
+                } catch (error) {
+                  alert("Error parsing dragged folder: " + error.message);
+                  console.error("Drop error:", error);
                 }
               }}
             >
