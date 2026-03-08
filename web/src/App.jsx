@@ -14,6 +14,8 @@ function App() {
   const [prompt, setPrompt] = useState('');
   const [model, setModel] = useState('imagen-4.0-generate-001');
   const [aspectRatio, setAspectRatio] = useState('1:1');
+  const [targetWidth, setTargetWidth] = useState('');
+  const [targetHeight, setTargetHeight] = useState('');
   const [outputResolution, setOutputResolution] = useState(''); // "" for default (1K), "2K" for Ultra model
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null);
@@ -126,7 +128,40 @@ function App() {
       const formData = new FormData();
       formData.append('prompt', prompt);
       formData.append('model', model);
-      formData.append('aspect_ratio', aspectRatio);
+
+      // Calculate closest aspect ratio if explicitly providing dimensions
+      let finalAspectRatio = aspectRatio;
+      if (targetWidth && targetHeight) {
+        const w = parseInt(targetWidth);
+        const h = parseInt(targetHeight);
+        if (!isNaN(w) && !isNaN(h) && w > 0 && h > 0) {
+          const targetRatio = w / h;
+          // Available Gemini aspect ratios and their float values
+          const ratios = {
+            "1:1": 1.0,
+            "4:3": 4 / 3,
+            "3:4": 3 / 4,
+            "16:9": 16 / 9,
+            "9:16": 9 / 16
+          };
+
+          // Find the closest ratio to minimize cropping loss
+          let closestMatch = "1:1";
+          let minDiff = Infinity;
+          for (const [ratioStr, ratioVal] of Object.entries(ratios)) {
+            const diff = Math.abs(ratioVal - targetRatio);
+            if (diff < minDiff) {
+              minDiff = diff;
+              closestMatch = ratioStr;
+            }
+          }
+          finalAspectRatio = closestMatch;
+          formData.append('target_width', w);
+          formData.append('target_height', h);
+        }
+      }
+
+      formData.append('aspect_ratio', finalAspectRatio);
       formData.append('output_resolution', outputResolution);
 
       if (baseImageFile) {
@@ -308,13 +343,47 @@ function App() {
 
           <div className="input-group">
             <label>Aspect Ratio</label>
-            <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
+            <select
+              value={aspectRatio}
+              onChange={(e) => setAspectRatio(e.target.value)}
+              disabled={!!(targetWidth && targetHeight)}
+              title={targetWidth && targetHeight ? "Aspect ratio is calculated automatically when Exact Dimensions are provided." : ""}
+            >
               <option value="1:1">1:1 (Square)</option>
               <option value="3:4">3:4 (Portrait)</option>
               <option value="4:3">4:3 (Landscape)</option>
               <option value="9:16">9:16 (Vertical Portrait)</option>
               <option value="16:9">16:9 (Widescreen)</option>
             </select>
+          </div>
+
+          <div className="input-group">
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Exact Dimensions (Optional)</span>
+              {(targetWidth || targetHeight) && <span style={{ fontSize: '0.8rem', color: 'var(--success-color, #4ade80)' }}>Center Crop enabled</span>}
+            </label>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <input
+                type="number"
+                placeholder="Width (px)"
+                value={targetWidth}
+                min="1"
+                onChange={(e) => setTargetWidth(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>×</span>
+              <input
+                type="number"
+                placeholder="Height (px)"
+                value={targetHeight}
+                min="1"
+                onChange={(e) => setTargetHeight(e.target.value)}
+                style={{ flex: 1 }}
+              />
+            </div>
+            <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
+              If provided, we will automatically select the closest Aspect Ratio and perform a perfect center-crop to guarantee these exact dimensions without stretching.
+            </small>
           </div>
 
           <div className="input-group">

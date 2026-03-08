@@ -5,6 +5,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel
+from typing import Optional
 from google import genai
 from google.genai import types
 from rembg import remove
@@ -107,6 +108,8 @@ async def generate_image(
     model: str = Form("imagen-4.0-generate-001"),
     aspect_ratio: str = Form("1:1"),
     output_resolution: str = Form(""),
+    target_width: Optional[int] = Form(None),
+    target_height: Optional[int] = Form(None),
     file: UploadFile = File(None)
 ):
     if client is None:
@@ -156,6 +159,45 @@ async def generate_image(
         generated_image = result.generated_images[0]
         image_bytes = generated_image.image.image_bytes
         
+        # Apply exact dimensions if requested using center-crop (cover)
+        if target_width and target_height:
+            try:
+                img = Image.open(io.BytesIO(image_bytes))
+                
+                # Calculate Target vs Current ratios
+                target_ratio = target_width / target_height
+                current_ratio = img.width / img.height
+                
+                # Scale down so the smallest edge perfectly matches
+                if target_ratio > current_ratio:
+                    # Target is wider than current. Match width first.
+                    new_width = target_width
+                    new_height = int(target_width / current_ratio)
+                else:
+                    # Target is taller than current. Match height first.
+                    new_height = target_height
+                    new_width = int(target_height * current_ratio)
+
+                # Resize image precisely
+                # Image.Resampling.LANCZOS guarantees high-quality downsampling
+                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                
+                # Perform the center crop
+                left = (img.width - target_width) / 2
+                top = (img.height - target_height) / 2
+                right = (img.width + target_width) / 2
+                bottom = (img.height + target_height) / 2
+                
+                img = img.crop((left, top, right, bottom))
+                
+                # Re-encode to bytes
+                img_byte_arr = io.BytesIO()
+                img.save(img_byte_arr, format='PNG')
+                image_bytes = img_byte_arr.getvalue()
+                
+            except Exception as e:
+                print(f"Warning: Failed to process target dimensions. Returning raw origin image. Error: {e}")
+                
         attempt_auto_save(image_bytes, "gen")
         
         # Return as raw image data for immediate display/download
