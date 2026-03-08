@@ -17,7 +17,7 @@ app = FastAPI(title="AI Image Generator & Processor API")
 # Add CORS middleware to allow cross-origin requests from our Vite frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict to actual frontend origin
+    allow_origins=["http://localhost:43210", "http://127.0.0.1:43210"], # Strictly restricted to local frontend instance
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -160,4 +160,4 @@ async def process_image(file: UploadFile = File(...)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=43211, reload=True)
+    uvicorn.run("main:app", host="127.0.0.1", port=43211, reload=True)
