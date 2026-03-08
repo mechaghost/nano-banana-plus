@@ -11,6 +11,9 @@ from rembg import remove
 from PIL import Image
 from dotenv import load_dotenv
 
+import tkinter as tk
+from tkinter import filedialog
+
 load_dotenv()
 
 app = FastAPI(title="AI Image Generator & Processor API")
@@ -79,6 +82,22 @@ def set_config(request: ConfigRequest):
     init_gemini_client()
     
     return {"status": "success", "has_api_key": client is not None}
+
+@app.get("/api/v1/browse-folder")
+def browse_folder():
+    try:
+        # We must create a root window and hide it for the dialog to work seamlessly
+        root = tk.Tk()
+        root.withdraw()
+        # On macOS, this brings the dialog to the front
+        root.attributes('-topmost', True)
+        folder_path = filedialog.askdirectory(parent=root, title="Select Auto-Save Directory")
+        root.destroy()
+        
+        return {"path": folder_path if folder_path else ""}
+    except Exception as e:
+        print(f"Error opening folder picker: {e}")
+        return {"path": ""}
 
 def attempt_auto_save(image_bytes: bytes, prefix: str):
     auto_save_dir = os.environ.get("AUTO_SAVE_DIR", "").strip()

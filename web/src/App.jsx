@@ -230,61 +230,46 @@ function App() {
             <div
               className="input-group"
               style={{ marginTop: '1rem' }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                try {
-                  if (e.dataTransfer) {
-                    // Mac Finder drops often contain the absolute path as a file URI
-                    const uriList = e.dataTransfer.getData("text/uri-list");
-                    if (uriList && uriList.startsWith("file://")) {
-                      // Extract path and decode special characters like spaces
-                      let path = decodeURI(uriList.replace('file://', '').trim());
-                      // Edge case: Sometimes file URIs include localhost
-                      if (path.startsWith("localhost/")) path = path.replace("localhost", "");
-                      setAutoSaveDirInput(path);
-                      return;
-                    }
-
-                    // Text fallback
-                    const plain = e.dataTransfer.getData("text/plain");
-                    if (plain) {
-                      setAutoSaveDirInput(plain.trim());
-                      return;
-                    }
-
-                    // File fallback (Chromium/Electron might expose .path)
-                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                      const f = e.dataTransfer.files[0];
-                      if (f.path) {
-                        setAutoSaveDirInput(f.path);
-                      } else {
-                        alert("Your browser sandbox blocked the absolute folder path. Please right-click the folder in Finder, hold Option, and click 'Copy as Pathname'.");
-                      }
-                    }
-                  }
-                } catch (error) {
-                  alert("Error parsing dragged folder: " + error.message);
-                  console.error("Drop error:", error);
-                }
-              }}
             >
               <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Auto-Save Directory Path <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}>(Optional)</span></span>
                 {autoSaveDirInput ? <span style={{ fontSize: '0.8rem', color: 'var(--success-color, #4ade80)' }}>✓ Active</span> : <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Disabled</span>}
               </label>
-              <input
-                type="text"
-                placeholder="Drag and drop a folder from Finder here..."
-                value={autoSaveDirInput}
-                onChange={(e) => setAutoSaveDirInput(e.target.value)}
-                style={{
-                  fontStyle: !autoSaveDirInput ? 'italic' : 'normal',
-                  border: '1px dashed var(--panel-border)'
-                }}
-              />
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="text"
+                  placeholder="/Users/username/Desktop/AI_Generations"
+                  value={autoSaveDirInput}
+                  onChange={(e) => setAutoSaveDirInput(e.target.value)}
+                  style={{
+                    fontStyle: !autoSaveDirInput ? 'italic' : 'normal',
+                    flex: 1
+                  }}
+                />
+                <button
+                  className="btn btn-secondary"
+                  style={{ whiteSpace: 'nowrap' }}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    try {
+                      const res = await fetch('http://127.0.0.1:43211/api/v1/browse-folder');
+                      if (res.ok) {
+                        const data = await res.json();
+                        if (data.path) {
+                          setAutoSaveDirInput(data.path);
+                        }
+                      }
+                    } catch (err) {
+                      console.error("Failed to open dialog", err);
+                      alert("Could not open native folder picker. Make sure the backend server is running.");
+                    }
+                  }}
+                >
+                  Browse...
+                </button>
+              </div>
               <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
-                Drag a folder from Finder into this box to auto-fill the path. Leave completely blank to disable auto-saving.
+                Click "Browse..." or manually paste an absolute folder path. Leave completely blank to disable auto-saving.
               </small>
             </div>
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
