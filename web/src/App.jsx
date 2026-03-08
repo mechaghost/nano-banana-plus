@@ -22,6 +22,51 @@ function App() {
   const [sourceImageFile, setSourceImageFile] = useState(null);
   const fileInputRef = useRef(null);
 
+  // Console Log State
+  const [logs, setLogs] = useState([]);
+  const logsEndRef = useRef(null);
+
+  // Intercept console messages
+  useEffect(() => {
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    const addLog = (type, args) => {
+      const message = args.map(arg =>
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+      ).join(' ');
+
+      setLogs(prev => [...prev, {
+        id: Date.now() + Math.random(),
+        type,
+        message,
+        time: new Date().toLocaleTimeString([], { hour12: false })
+      }].slice(-50)); // Keep last 50 logs
+    };
+
+    console.log = (...args) => {
+      originalLog(...args);
+      addLog('log', args);
+    };
+
+    console.error = (...args) => {
+      originalError(...args);
+      addLog('error', args);
+    };
+
+    console.warn = (...args) => {
+      originalWarn(...args);
+      addLog('warn', args);
+    };
+
+    return () => {
+      console.log = originalLog;
+      console.error = originalError;
+      console.warn = originalWarn;
+    };
+  }, []);
+
   // Check config on mount
   useEffect(() => {
     checkConfig();
@@ -314,6 +359,33 @@ function App() {
           </button>
         </section>
       </div>
+
+      {/* Terminal / Debugger Panel */}
+      <section className="glass-panel" style={{ marginTop: '2rem' }}>
+        <div className="panel-header" style={{ fontSize: '1.2rem', paddingBottom: '0.5rem' }}>
+          <h2>Console Output</h2>
+          <button
+            className="btn btn-secondary"
+            style={{ marginLeft: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
+            onClick={() => setLogs([])}
+          >
+            Clear
+          </button>
+        </div>
+        <div className="terminal-window">
+          {logs.length === 0 ? (
+            <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>Listening for console events...</div>
+          ) : (
+            logs.map(log => (
+              <div key={log.id} className={`log-entry log-${log.type}`}>
+                <span className="log-time">[{log.time}]</span>
+                <span className="log-message">{log.message}</span>
+              </div>
+            ))
+          )}
+          <div ref={logsEndRef} />
+        </div>
+      </section>
     </div>
   );
 }
