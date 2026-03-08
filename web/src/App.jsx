@@ -11,7 +11,7 @@ function App() {
 
   // Generation State
   const [prompt, setPrompt] = useState('');
-  const [model, setModel] = useState('imagen-3.0-generate-001');
+  const [model, setModel] = useState('imagen-3.0-generate-002');
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null);
@@ -208,7 +208,7 @@ function App() {
           <div className="input-group">
             <label>Model</label>
             <select value={model} onChange={(e) => setModel(e.target.value)}>
-              <option value="imagen-3.0-generate-001">Imagen 3.0 Standard</option>
+              <option value="imagen-3.0-generate-002">Imagen 3.0 Standard</option>
               <option value="imagen-3.0-fast-generate-001">Imagen 3.0 Fast</option>
             </select>
           </div>
