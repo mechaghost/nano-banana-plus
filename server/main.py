@@ -51,6 +51,7 @@ init_gemini_client()
 class ConfigRequest(BaseModel):
     api_key: str
     auto_save_dir: str = ""
+    rate_limit_throttle: float = 4.0
 
 # Global rate limit queue for Gemini API
 # Free Tier maxes out at 15 Requests Per Minute (1 every 4.0 seconds)
@@ -76,8 +77,12 @@ def health_check():
 def get_config():
     api_key = os.environ.get("GEMINI_API_KEY", "")
     auto_save_dir = os.environ.get("AUTO_SAVE_DIR", "")
+    try:
+        rate_limit_throttle = float(os.environ.get("RATE_LIMIT_DELAY", 4.0))
+    except (ValueError, TypeError):
+        rate_limit_throttle = 4.0
     has_key = bool(api_key and api_key != "your_api_key_here" and api_key.strip() != "")
-    return {"has_api_key": has_key, "auto_save_dir": auto_save_dir}
+    return {"has_api_key": has_key, "auto_save_dir": auto_save_dir, "rate_limit_throttle": rate_limit_throttle}
 
 @app.post("/api/v1/config")
 def set_config(request: ConfigRequest):
@@ -89,10 +94,12 @@ def set_config(request: ConfigRequest):
     with open(env_path, 'w') as f:
         f.write(f'GEMINI_API_KEY="{request.api_key}"\n')
         f.write(f'AUTO_SAVE_DIR="{request.auto_save_dir}"\n')
+        f.write(f'RATE_LIMIT_DELAY="{request.rate_limit_throttle}"\n')
         
     # Update current process environment
     os.environ["GEMINI_API_KEY"] = request.api_key
     os.environ["AUTO_SAVE_DIR"] = request.auto_save_dir
+    os.environ["RATE_LIMIT_DELAY"] = str(request.rate_limit_throttle)
     
     # Reinitialize client
     init_gemini_client()
@@ -154,7 +161,11 @@ async def generate_image(
         config = types.GenerateImagesConfig(**config_kwargs)
         
         # Wait for our turn in the rate-limit queue
-        await wait_for_rate_limit()
+        try:
+            delay_seconds = float(os.environ.get("RATE_LIMIT_DELAY", 4.0))
+        except (ValueError, TypeError):
+            delay_seconds = 4.0
+        await wait_for_rate_limit(min_delay_seconds=delay_seconds)
 
         # If there's a base image (image-to-image), we pass it as a list with the prompt
         if base_image:

@@ -8,6 +8,7 @@ function App() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [autoSaveDirInput, setAutoSaveDirInput] = useState('');
+  const [rateLimitThrottle, setRateLimitThrottle] = useState(4.0);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
 
   // Generation State
@@ -84,6 +85,9 @@ function App() {
       const data = await res.json();
       setHasApiKey(data.has_api_key);
       setAutoSaveDirInput(data.auto_save_dir || '');
+      if (data.rate_limit_throttle !== undefined) {
+        setRateLimitThrottle(data.rate_limit_throttle);
+      }
       if (!data.has_api_key) {
         setShowConfigModal(true);
       }
@@ -99,7 +103,11 @@ function App() {
       const res = await fetch('http://127.0.0.1:43211/api/v1/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKeyInput.trim(), auto_save_dir: autoSaveDirInput.trim() }),
+        body: JSON.stringify({
+          api_key: apiKeyInput.trim(),
+          auto_save_dir: autoSaveDirInput.trim(),
+          rate_limit_throttle: parseFloat(rateLimitThrottle) || 4.0
+        }),
       });
       const data = await res.json();
       if (data.status === 'success') {
@@ -283,6 +291,27 @@ function App() {
                 Paste the absolute folder path. Leave completely blank to disable auto-saving.
               </small>
             </div>
+
+            <div
+              className="input-group"
+              style={{ marginTop: '1rem' }}
+            >
+              <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>API Rate Limit Throttle <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}>(Queue Delay)</span></span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{rateLimitThrottle}s</span>
+              </label>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                value={rateLimitThrottle}
+                onChange={(e) => setRateLimitThrottle(e.target.value)}
+              />
+              <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
+                The minimum delay between Gemini API requests to prevent "429 Too Many Requests". Free-tier requires at least 4.0 seconds. Set to 0 to disable the queue.
+              </small>
+            </div>
+
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
               {hasApiKey && (
                 <button className="btn btn-secondary" onClick={() => setShowConfigModal(false)}>
