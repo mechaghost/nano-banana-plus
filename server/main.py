@@ -1,5 +1,6 @@
 import os
 import io
+import datetime
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -46,6 +47,7 @@ init_gemini_client()
 
 class ConfigRequest(BaseModel):
     api_key: str
+    auto_save_dir: str = ""
 
 @app.get("/api/v1/health")
 def health_check():
@@ -54,8 +56,9 @@ def health_check():
 @app.get("/api/v1/config")
 def get_config():
     api_key = os.environ.get("GEMINI_API_KEY", "")
+    auto_save_dir = os.environ.get("AUTO_SAVE_DIR", "")
     has_key = bool(api_key and api_key != "your_api_key_here" and api_key.strip() != "")
-    return {"has_api_key": has_key}
+    return {"has_api_key": has_key, "auto_save_dir": auto_save_dir}
 
 @app.post("/api/v1/config")
 def set_config(request: ConfigRequest):
@@ -63,17 +66,40 @@ def set_config(request: ConfigRequest):
     # Save to .env file
     env_path = os.path.join(os.path.dirname(__file__), '.env')
     
-    # Simple write, overwriting the file with just the key (sufficient for this project)
+    # Simple write, overwriting the file
     with open(env_path, 'w') as f:
         f.write(f'GEMINI_API_KEY="{request.api_key}"\n')
+        f.write(f'AUTO_SAVE_DIR="{request.auto_save_dir}"\n')
         
     # Update current process environment
     os.environ["GEMINI_API_KEY"] = request.api_key
+    os.environ["AUTO_SAVE_DIR"] = request.auto_save_dir
     
     # Reinitialize client
     init_gemini_client()
     
     return {"status": "success", "has_api_key": client is not None}
+
+def attempt_auto_save(image_bytes: bytes, prefix: str):
+    auto_save_dir = os.environ.get("AUTO_SAVE_DIR", "").strip()
+    if not auto_save_dir:
+        return
+        
+    # Expand ~ to user home directory if needed
+    save_dir = os.path.expanduser(auto_save_dir)
+    
+    if os.path.isdir(save_dir):
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{prefix}_{timestamp}.png"
+        filepath = os.path.join(save_dir, filename)
+        try:
+            with open(filepath, "wb") as f:
+                f.write(image_bytes)
+            print(f"Auto-saved: {filepath}")
+        except Exception as e:
+            print(f"Warning: Failed to auto-save to {filepath}. Error: {e}")
+    else:
+        print(f"Warning: Auto-save directory does not exist: {save_dir}")
 
 @app.post("/api/v1/generate")
 async def generate_image(
@@ -128,8 +154,12 @@ async def generate_image(
             raise HTTPException(status_code=500, detail="No images generated.")
             
         generated_image = result.generated_images[0]
+        image_bytes = generated_image.image.image_bytes
+        
+        attempt_auto_save(image_bytes, "gen")
+        
         # Return as raw image data for immediate display/download
-        return Response(content=generated_image.image.image_bytes, media_type="image/png")
+        return Response(content=image_bytes, media_type="image/png")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -158,9 +188,11 @@ async def process_image(file: UploadFile = File(...)):
         # Convert back to bytes for response
         img_byte_arr = io.BytesIO()
         trimmed_image.save(img_byte_arr, format='PNG')
-        img_byte_arr = img_byte_arr.getvalue()
+        final_bytes = img_byte_arr.getvalue()
         
-        return Response(content=img_byte_arr, media_type="image/png")
+        attempt_auto_save(final_bytes, "proc")
+        
+        return Response(content=final_bytes, media_type="image/png")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

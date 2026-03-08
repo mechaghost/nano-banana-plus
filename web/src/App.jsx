@@ -7,12 +7,14 @@ function App() {
   const [hasApiKey, setHasApiKey] = useState(true); // Assume true initially to prevent flash
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const [autoSaveDirInput, setAutoSaveDirInput] = useState('');
   const [isSavingConfig, setIsSavingConfig] = useState(false);
 
   // Generation State
   const [prompt, setPrompt] = useState('');
   const [model, setModel] = useState('imagen-4.0-generate-001');
   const [aspectRatio, setAspectRatio] = useState('1:1');
+  const [outputResolution, setOutputResolution] = useState(''); // "" for default (1K), "2K" for Ultra model
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null);
   const [baseImageFile, setBaseImageFile] = useState(null);
@@ -79,6 +81,7 @@ function App() {
       const res = await fetch('http://127.0.0.1:43211/api/v1/config');
       const data = await res.json();
       setHasApiKey(data.has_api_key);
+      setAutoSaveDirInput(data.auto_save_dir || '');
       if (!data.has_api_key) {
         setShowConfigModal(true);
       }
@@ -94,7 +97,7 @@ function App() {
       const res = await fetch('http://127.0.0.1:43211/api/v1/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKeyInput.trim() }),
+        body: JSON.stringify({ api_key: apiKeyInput.trim(), auto_save_dir: autoSaveDirInput.trim() }),
       });
       const data = await res.json();
       if (data.status === 'success') {
@@ -124,6 +127,7 @@ function App() {
       formData.append('prompt', prompt);
       formData.append('model', model);
       formData.append('aspect_ratio', aspectRatio);
+      formData.append('output_resolution', outputResolution);
 
       if (baseImageFile) {
         formData.append('file', baseImageFile);
@@ -212,6 +216,18 @@ function App() {
                 onChange={(e) => setApiKeyInput(e.target.value)}
               />
             </div>
+            <div className="input-group" style={{ marginTop: '1rem' }}>
+              <label>Auto-Save Directory Path <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}>(Optional)</span></label>
+              <input
+                type="text"
+                placeholder="/Users/username/Desktop/AI_Generations"
+                value={autoSaveDirInput}
+                onChange={(e) => setAutoSaveDirInput(e.target.value)}
+              />
+              <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
+                Leave completely blank to disable auto-saving. If configured, all generated and processed images will automatically save here.
+              </small>
+            </div>
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
               {hasApiKey && (
                 <button className="btn btn-secondary" onClick={() => setShowConfigModal(false)}>
@@ -279,6 +295,24 @@ function App() {
               <option value="9:16">9:16 (Vertical Portrait)</option>
               <option value="16:9">16:9 (Widescreen)</option>
             </select>
+          </div>
+
+          <div className="input-group">
+            <label>Output Resolution</label>
+            <select
+              value={outputResolution}
+              onChange={(e) => setOutputResolution(e.target.value)}
+              disabled={model !== 'imagen-4.0-ultra-generate-001'} // 2K is only supported by Ultra
+              title={model !== 'imagen-4.0-ultra-generate-001' ? "High resolution is only supported by the Imagen 4.0 Ultra model." : ""}
+            >
+              <option value="">1K (Default)</option>
+              <option value="2K">2K (High Resolution)</option>
+            </select>
+            {model !== 'imagen-4.0-ultra-generate-001' && (
+              <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
+                *Select Imagen 4.0 Ultra to unlock 2K generation.
+              </small>
+            )}
           </div>
 
           <div
