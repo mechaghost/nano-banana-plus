@@ -43,7 +43,7 @@ init_gemini_client()
 
 class GenerateRequest(BaseModel):
     prompt: str
-    model: str = "imagen-3.0-generate-002" # Or imagen-3.0-fast-generate-001
+    model: str = "imagen-4.0-generate-001" # Or imagen-4.0-fast-generate-001
     aspect_ratio: str = "1:1"
 
 class ConfigRequest(BaseModel):
