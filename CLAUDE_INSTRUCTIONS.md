@@ -18,6 +18,9 @@ Use this to synthesize new images based on text prompts.
     - `imagen-4.0-fast-generate-001` (Drafts, high speed)
     - `imagen-4.0-ultra-generate-001` (Maximum quality, photorealism)
   - `aspect_ratio` (string, optional): Defaults to `1:1`. Valid options include `1:1`, `3:4`, `4:3`, `9:16`, `16:9`.
+  - `output_resolution` (string, optional): Defaults to `""` (1K). Can be `"2K"` if the Ultra model is used.
+  - `target_width` (integer, optional): The exact pixel target width to crop the image to without stretching.
+  - `target_height` (integer, optional): The exact pixel target height to crop the image to without stretching.
   - `file` (binary, optional): A base image file if the user requests image-to-image generation.
 - **Response**: Raw PNG image bytes.
 
