@@ -1,6 +1,8 @@
 import os
 import io
 import datetime
+import time
+import asyncio
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -49,6 +51,22 @@ init_gemini_client()
 class ConfigRequest(BaseModel):
     api_key: str
     auto_save_dir: str = ""
+
+# Global rate limit queue for Gemini API
+# Free Tier maxes out at 15 Requests Per Minute (1 every 4.0 seconds)
+rate_limit_lock = asyncio.Lock()
+last_request_time = 0.0
+
+async def wait_for_rate_limit(min_delay_seconds: float = 4.0):
+    global last_request_time
+    async with rate_limit_lock:
+        current_time = time.time()
+        time_since_last = current_time - last_request_time
+        if time_since_last < min_delay_seconds:
+            delay = min_delay_seconds - time_since_last
+            print(f"Rate limit queue: Holding request for {delay:.2f} seconds...")
+            await asyncio.sleep(delay)
+        last_request_time = time.time()
 
 @app.get("/api/v1/health")
 def health_check():
@@ -135,18 +153,24 @@ async def generate_image(
             
         config = types.GenerateImagesConfig(**config_kwargs)
         
+        # Wait for our turn in the rate-limit queue
+        await wait_for_rate_limit()
+
         # If there's a base image (image-to-image), we pass it as a list with the prompt
         if base_image:
             # Note: For image-to-image, Gemini expects the Image object directly
             inputs = [prompt, base_image]
-            result = client.models.generate_images(
+            # Offload synchronous SDK call to a thread so the async queue continues processing
+            result = await asyncio.to_thread(
+                client.models.generate_images,
                 model=model,
                 prompt=inputs,
                 config=config
             )
         else:
             # Standard Text-to-Image
-            result = client.models.generate_images(
+            result = await asyncio.to_thread(
+                client.models.generate_images,
                 model=model,
                 prompt=prompt,
                 config=config
