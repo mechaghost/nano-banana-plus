@@ -80,6 +80,7 @@ async def generate_image(
     prompt: str = Form(...),
     model: str = Form("imagen-4.0-generate-001"),
     aspect_ratio: str = Form("1:1"),
+    output_resolution: str = Form(""),
     file: UploadFile = File(None)
 ):
     if client is None:
@@ -93,11 +94,17 @@ async def generate_image(
             base_image = Image.open(io.BytesIO(contents))
         
         # Configure Gemini parameters
-        config = types.GenerateImagesConfig(
-            number_of_images=1,
-            aspect_ratio=aspect_ratio,
-            output_mime_type="image/png"
-        )
+        config_kwargs = {
+            "number_of_images": 1,
+            "aspect_ratio": aspect_ratio,
+            "output_mime_type": "image/png"
+        }
+        
+        # Only add output_resolution if explicitly provided, as "1K" or "2K"
+        if output_resolution in ["1K", "2K"]:
+            config_kwargs["output_resolution"] = output_resolution
+            
+        config = types.GenerateImagesConfig(**config_kwargs)
         
         # If there's a base image (image-to-image), we pass it as a list with the prompt
         if base_image:
