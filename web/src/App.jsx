@@ -214,7 +214,7 @@ function App() {
               </label>
               <input
                 type="password"
-                placeholder={hasApiKey ? "••••••••••••••••••••••••••••••••••••••" : "AIzaSy..."}
+                placeholder={hasApiKey ? "API Key is active (Type to replace)" : "Enter Gemini API Key (e.g. AIzaSy...)"}
                 value={apiKeyInput}
                 onChange={(e) => setApiKeyInput(e.target.value)}
                 style={{
@@ -237,7 +237,7 @@ function App() {
               </label>
               <input
                 type="text"
-                placeholder="/Users/username/Desktop/AI_Generations"
+                placeholder="e.g. /Users/username/Desktop/AI_Generations"
                 value={autoSaveDirInput}
                 onChange={(e) => setAutoSaveDirInput(e.target.value)}
                 style={{
