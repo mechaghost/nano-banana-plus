@@ -8,6 +8,8 @@ A sophisticated local web application combining cloud-based AI image generation 
 - **Image-to-Image Support**: Upload an initial asset alongside your text prompt to guide the AI's generation.
 - **Exact Dimension Targeting**: Define custom widths and heights. The engine will dynamically nearest-match the API's aspect ratio and perform a lossless center-crop (cover) via Pillow so images are perfectly sized without stretching.
 - **High Resolution Outputs**: Generate up to 2K resolution when using the Imagen 4.0 Ultra model.
+- **Auto-Save Directory**: Optionally set a local directory to automatically archive all generated and processed PNGs without relying on manual downloads.
+- **Rate Limit Queue**: An active global `asyncio` traffic queue safely enforces a minimum Google Gemini Free-Tier delay (~4.0s) between bursts of generation requests, completely preventing `429 Too Many Requests` API crashes. The delay can be disabled in the settings menu.
 - **Local Background Removal**: Uses `rembg` (U^2-Net model) to strip backgrounds natively without any cloud overhead.
 - **Smart Cropping**: Trims transparency and isolates the subject using `Pillow` bounding box calculations.
 - **Agentic API**: The FastAPI backend automatically generates standard OpenAPI documentation, allowing modern AI tools and agents to seamlessly interact with your local server.
