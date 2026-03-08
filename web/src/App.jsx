@@ -227,22 +227,59 @@ function App() {
                 </small>
               )}
             </div>
-            <div className="input-group" style={{ marginTop: '1rem' }}>
+            <div
+              className="input-group"
+              style={{ marginTop: '1rem' }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (e.dataTransfer) {
+                  // Mac Finder drops often contain the absolute path as a file URI
+                  const uriList = e.dataTransfer.getData("text/uri-list");
+                  if (uriList && uriList.startsWith("file://")) {
+                    // Extract path and decode special characters like spaces
+                    let path = decodeURI(uriList.replace('file://', '').trim());
+                    // Edge case: Sometimes file URIs include localhost
+                    if (path.startsWith("localhost/")) path = path.replace("localhost", "");
+                    setAutoSaveDirInput(path);
+                    return;
+                  }
+
+                  // Text fallback
+                  const plain = e.dataTransfer.getData("text/plain");
+                  if (plain) {
+                    setAutoSaveDirInput(plain.trim());
+                    return;
+                  }
+
+                  // File fallback (Chromium/Electron might expose .path)
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    const f = e.dataTransfer.files[0];
+                    if (f.path) {
+                      setAutoSaveDirInput(f.path);
+                    } else {
+                      alert("Your browser sandbox blocked the absolute folder path. Please right-click the folder in Finder, hold Option, and click 'Copy as Pathname'.");
+                    }
+                  }
+                }
+              }}
+            >
               <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Auto-Save Directory Path <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}>(Optional)</span></span>
                 {autoSaveDirInput ? <span style={{ fontSize: '0.8rem', color: 'var(--success-color, #4ade80)' }}>✓ Active</span> : <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Disabled</span>}
               </label>
               <input
                 type="text"
-                placeholder="No directory set (Auto-save disabled)"
+                placeholder="Drag and drop a folder from Finder here..."
                 value={autoSaveDirInput}
                 onChange={(e) => setAutoSaveDirInput(e.target.value)}
                 style={{
-                  fontStyle: !autoSaveDirInput ? 'italic' : 'normal'
+                  fontStyle: !autoSaveDirInput ? 'italic' : 'normal',
+                  border: '1px dashed var(--panel-border)'
                 }}
               />
               <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
-                Leave completely blank to disable auto-saving. If configured, all generated and processed images will automatically save here.
+                Drag a folder from Finder into this box to auto-fill the path. Leave completely blank to disable auto-saving.
               </small>
             </div>
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
