@@ -208,21 +208,38 @@ function App() {
               This key will be saved locally to your `server/.env` file.
             </p>
             <div className="input-group">
-              <label>Gemini API Key</label>
+              <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                Gemini API Key
+                {hasApiKey && <span style={{ fontSize: '0.8rem', color: 'var(--success-color, #4ade80)' }}>✓ Currently Set</span>}
+              </label>
               <input
                 type="password"
-                placeholder="AIzaSy..."
+                placeholder={hasApiKey ? "••••••••••••••••••••••••••••••••••••••" : "AIzaSy..."}
                 value={apiKeyInput}
                 onChange={(e) => setApiKeyInput(e.target.value)}
+                style={{
+                  borderColor: !hasApiKey && !apiKeyInput.trim() ? 'rgba(239, 68, 68, 0.5)' : 'var(--panel-border)'
+                }}
               />
+              {!hasApiKey && !apiKeyInput.trim() && (
+                <small style={{ color: '#ef4444', display: 'block', marginTop: '0.25rem' }}>
+                  A valid API key is required to generate images.
+                </small>
+              )}
             </div>
             <div className="input-group" style={{ marginTop: '1rem' }}>
-              <label>Auto-Save Directory Path <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}>(Optional)</span></label>
+              <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Auto-Save Directory Path <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}>(Optional)</span></span>
+                {autoSaveDirInput ? <span style={{ fontSize: '0.8rem', color: 'var(--success-color, #4ade80)' }}>✓ Active</span> : <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Disabled</span>}
+              </label>
               <input
                 type="text"
-                placeholder="/Users/username/Desktop/AI_Generations"
+                placeholder="No directory set (Auto-save disabled)"
                 value={autoSaveDirInput}
                 onChange={(e) => setAutoSaveDirInput(e.target.value)}
+                style={{
+                  fontStyle: !autoSaveDirInput ? 'italic' : 'normal'
+                }}
               />
               <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
                 Leave completely blank to disable auto-saving. If configured, all generated and processed images will automatically save here.
@@ -237,9 +254,9 @@ function App() {
               <button
                 className="btn btn-primary"
                 onClick={saveConfig}
-                disabled={!apiKeyInput.trim() || isSavingConfig}
+                disabled={(!apiKeyInput.trim() && !hasApiKey) || isSavingConfig}
               >
-                {isSavingConfig ? <Loader2 className="spinner" /> : 'Save Key'}
+                {isSavingConfig ? <Loader2 className="spinner" /> : 'Save Settings'}
               </button>
             </div>
           </div>
