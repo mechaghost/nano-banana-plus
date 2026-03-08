@@ -29,7 +29,7 @@ function App() {
 
   const checkConfig = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/v1/config');
+      const res = await fetch('http://127.0.0.1:43211/api/v1/config');
       const data = await res.json();
       setHasApiKey(data.has_api_key);
       if (!data.has_api_key) {
@@ -44,7 +44,7 @@ function App() {
     if (!apiKeyInput.trim()) return;
     setIsSavingConfig(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/v1/config', {
+      const res = await fetch('http://127.0.0.1:43211/api/v1/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ api_key: apiKeyInput.trim() }),
@@ -73,7 +73,7 @@ function App() {
         return;
       }
 
-      const response = await fetch('http://127.0.0.1:8000/api/v1/generate', {
+      const response = await fetch('http://127.0.0.1:43211/api/v1/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, model, aspect_ratio: aspectRatio }),
@@ -104,7 +104,7 @@ function App() {
       const formData = new FormData();
       formData.append('file', sourceImageFile);
 
-      const response = await fetch('http://127.0.0.1:8000/api/v1/process', {
+      const response = await fetch('http://127.0.0.1:43211/api/v1/process', {
         method: 'POST',
         body: formData,
       });
