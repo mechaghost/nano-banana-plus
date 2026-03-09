@@ -18,6 +18,7 @@ function App() {
   const [targetWidth, setTargetWidth] = useState('');
   const [targetHeight, setTargetHeight] = useState('');
   const [outputResolution, setOutputResolution] = useState(''); // "" for default (1K), "2K" for Ultra model
+  const [outputFormat, setOutputFormat] = useState('png'); // 'png' or 'webp'
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null);
   const [baseImageFile, setBaseImageFile] = useState(null);
@@ -171,6 +172,7 @@ function App() {
 
       formData.append('aspect_ratio', finalAspectRatio);
       formData.append('output_resolution', outputResolution);
+      formData.append('output_format', outputFormat);
 
       if (baseImageFile) {
         formData.append('file', baseImageFile);
@@ -189,7 +191,7 @@ function App() {
       setGeneratedImage(imageUrl);
 
       // Auto-set as source for processing if we want to chain them
-      setSourceImageFile(new File([blob], 'generated.png', { type: 'image/png' }));
+      setSourceImageFile(new File([blob], `generated.${outputFormat}`, { type: `image/${outputFormat}` }));
 
     } catch (error) {
       console.error(error);
@@ -206,6 +208,7 @@ function App() {
     try {
       const formData = new FormData();
       formData.append('file', sourceImageFile);
+      formData.append('output_format', outputFormat);
 
       const response = await fetch('http://127.0.0.1:43211/api/v1/process', {
         method: 'POST',
@@ -433,6 +436,17 @@ function App() {
             )}
           </div>
 
+          <div className="input-group">
+            <label>Output Format</label>
+            <select
+              value={outputFormat}
+              onChange={(e) => setOutputFormat(e.target.value)}
+            >
+              <option value="png">PNG (Lossless)</option>
+              <option value="webp">WebP (Smaller Size)</option>
+            </select>
+          </div>
+
           <div
             className="input-group dropzone"
             onDragOver={(e) => e.preventDefault()}
@@ -507,7 +521,7 @@ function App() {
 
             {generatedImage && (
               <div className="result-actions">
-                <a className="btn btn-secondary" href={generatedImage} download="generated.png">
+                <a className="btn btn-secondary" href={generatedImage} download={`generated.${outputFormat}`}>
                   <Download size={18} /> Download
                 </a>
               </div>
@@ -557,7 +571,7 @@ function App() {
 
             {processedImage && (
               <div className="result-actions">
-                <a className="btn btn-primary" href={processedImage} download="processed.png">
+                <a className="btn className-primary" href={processedImage} download={`processed.${outputFormat}`}>
                   <Download size={18} /> Save Asset
                 </a>
                 <button className="btn btn-secondary" onClick={(e) => {

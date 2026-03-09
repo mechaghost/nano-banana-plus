@@ -106,7 +106,7 @@ def set_config(request: ConfigRequest):
     
     return {"status": "success", "has_api_key": client is not None}
 
-def attempt_auto_save(image_bytes: bytes, prefix: str):
+def attempt_auto_save(image_bytes: bytes, prefix: str, ext: str = "png"):
     auto_save_dir = os.environ.get("AUTO_SAVE_DIR", "").strip()
     if not auto_save_dir:
         return
@@ -116,7 +116,7 @@ def attempt_auto_save(image_bytes: bytes, prefix: str):
     
     if os.path.isdir(save_dir):
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{prefix}_{timestamp}.png"
+        filename = f"{prefix}_{timestamp}.{ext}"
         filepath = os.path.join(save_dir, filename)
         try:
             with open(filepath, "wb") as f:
@@ -133,6 +133,7 @@ async def generate_image(
     model: str = Form("imagen-4.0-generate-001"),
     aspect_ratio: str = Form("1:1"),
     output_resolution: str = Form(""),
+    output_format: str = Form("png"),
     target_width: Optional[int] = Form(None),
     target_height: Optional[int] = Form(None),
     file: UploadFile = File(None)
@@ -194,55 +195,66 @@ async def generate_image(
         generated_image = result.generated_images[0]
         image_bytes = generated_image.image.image_bytes
         
-        # Apply exact dimensions if requested using center-crop (cover)
-        if target_width and target_height:
+        # We always get PNG from Gemini as per config.
+        # Check if we need to process image (crop or convert format).
+        needs_processing = bool((target_width and target_height) or output_format.lower() == "webp")
+        
+        if needs_processing:
             try:
                 img = Image.open(io.BytesIO(image_bytes))
                 
-                # Calculate Target vs Current ratios
-                target_ratio = target_width / target_height
-                current_ratio = img.width / img.height
-                
-                # Scale down so the smallest edge perfectly matches
-                if target_ratio > current_ratio:
-                    # Target is wider than current. Match width first.
-                    new_width = target_width
-                    new_height = int(target_width / current_ratio)
-                else:
-                    # Target is taller than current. Match height first.
-                    new_height = target_height
-                    new_width = int(target_height * current_ratio)
+                # Apply exact dimensions if requested using center-crop (cover)
+                if target_width and target_height:
+                    # Calculate Target vs Current ratios
+                    target_ratio = target_width / target_height
+                    current_ratio = img.width / img.height
+                    
+                    # Scale down so the smallest edge perfectly matches
+                    if target_ratio > current_ratio:
+                        # Target is wider than current. Match width first.
+                        new_width = target_width
+                        new_height = int(target_width / current_ratio)
+                    else:
+                        # Target is taller than current. Match height first.
+                        new_height = target_height
+                        new_width = int(target_height * current_ratio)
 
-                # Resize image precisely
-                # Image.Resampling.LANCZOS guarantees high-quality downsampling
-                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    # Resize image precisely
+                    # Image.Resampling.LANCZOS guarantees high-quality downsampling
+                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    
+                    # Perform the center crop
+                    left = (img.width - target_width) / 2
+                    top = (img.height - target_height) / 2
+                    right = (img.width + target_width) / 2
+                    bottom = (img.height + target_height) / 2
+                    
+                    img = img.crop((left, top, right, bottom))
                 
-                # Perform the center crop
-                left = (img.width - target_width) / 2
-                top = (img.height - target_height) / 2
-                right = (img.width + target_width) / 2
-                bottom = (img.height + target_height) / 2
-                
-                img = img.crop((left, top, right, bottom))
-                
-                # Re-encode to bytes
+                # Re-encode to bytes in the requested format
                 img_byte_arr = io.BytesIO()
-                img.save(img_byte_arr, format='PNG')
+                save_format = 'WEBP' if output_format.lower() == 'webp' else 'PNG'
+                img.save(img_byte_arr, format=save_format)
                 image_bytes = img_byte_arr.getvalue()
                 
             except Exception as e:
-                print(f"Warning: Failed to process target dimensions. Returning raw origin image. Error: {e}")
+                print(f"Warning: Failed to process image (crop or convert). Returning raw origin image. Error: {e}")
                 
-        attempt_auto_save(image_bytes, "gen")
+        ext = output_format.lower() if output_format.lower() in ["png", "webp"] else "png"
+        attempt_auto_save(image_bytes, "gen", ext)
         
+        media_type = f"image/{ext}"
         # Return as raw image data for immediate display/download
-        return Response(content=image_bytes, media_type="image/png")
+        return Response(content=image_bytes, media_type=media_type)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/process")
-async def process_image(file: UploadFile = File(...)):
+async def process_image(
+    file: UploadFile = File(...),
+    output_format: str = Form("png")
+):
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image.")
     
@@ -264,12 +276,15 @@ async def process_image(file: UploadFile = File(...)):
             
         # Convert back to bytes for response
         img_byte_arr = io.BytesIO()
-        trimmed_image.save(img_byte_arr, format='PNG')
+        ext = output_format.lower() if output_format.lower() in ["png", "webp"] else "png"
+        save_format = 'WEBP' if ext == 'webp' else 'PNG'
+        trimmed_image.save(img_byte_arr, format=save_format)
         final_bytes = img_byte_arr.getvalue()
         
-        attempt_auto_save(final_bytes, "proc")
+        attempt_auto_save(final_bytes, "proc", ext)
         
-        return Response(content=final_bytes, media_type="image/png")
+        media_type = f"image/{ext}"
+        return Response(content=final_bytes, media_type=media_type)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

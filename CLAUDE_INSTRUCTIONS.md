@@ -21,8 +21,9 @@ Use this to synthesize new images based on text prompts.
   - `output_resolution` (string, optional): Defaults to `""` (1K). Can be `"2K"` if the Ultra model is used.
   - `target_width` (integer, optional): The exact pixel target width to crop the image to without stretching.
   - `target_height` (integer, optional): The exact pixel target height to crop the image to without stretching.
+  - `output_format` (string, optional): The format of the returned image, either `png` (default) or `webp`.
   - `file` (binary, optional): A base image file if the user requests image-to-image generation.
-- **Response**: Raw PNG image bytes.
+- **Response**: Raw PNG or WebP image bytes, depending on `output_format`.
 
 **Command Line Usage Example (Do not run Curl, use python/js/tools available to you):**
 ```bash
@@ -38,10 +39,11 @@ Use this to remove backgrounds from an image and crop the transparent bounds tig
 - **Request Format**: `multipart/form-data`
 - **Parameters**:
   - `file` (binary, required): The target image.
-- **Response**: Raw PNG image bytes with a transparent background.
+  - `output_format` (string, optional): The format of the returned image, either `png` (default) or `webp`.
+- **Response**: Raw PNG or WebP image bytes with a transparent background.
 
 ## Workflow Rules
 1. Never apologize for not being able to generate images. You CAN generate images by writing a short python script or CLI request targeting the local API endpoints above.
 2. Form your requests correctly using `multipart/form-data` (not JSON).
-3. Always save the resulting raw PNG bytes locally to the user's workspace and inform the user of the saved filepath.
+3. Always save the resulting raw image bytes locally to the user's workspace and inform the user of the saved filepath.
 4. If the user asks for a transparent background, you must FIRST hit the `generate` endpoint, save the image, and then SECOND hit the `process` endpoint with that image to strip the background.
