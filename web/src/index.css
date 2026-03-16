@@ -52,6 +52,19 @@ header {
   animation: fadeInDown 0.8s ease-out;
 }
 
+.header-logo {
+  max-width: 320px;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 4px 24px rgba(59, 130, 246, 0.3));
+  transition: filter 0.3s ease, transform 0.3s ease;
+}
+
+.header-logo:hover {
+  filter: drop-shadow(0 6px 32px rgba(139, 92, 246, 0.5));
+  transform: scale(1.03);
+}
+
 h1 {
   font-size: 3rem;
   font-weight: 700;

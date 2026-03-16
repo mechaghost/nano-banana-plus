@@ -343,8 +343,7 @@ function App() {
             <Settings size={18} /> Settings
           </button>
         </div>
-        <h1>AI Studio</h1>
-        <p className="subtitle">Gemini Generation & Local Background Processing</p>
+        <img src="/logo.webp" alt="Price Guess - The Game Show!" className="header-logo" />
       </header>
 
       <div className="main-grid">
