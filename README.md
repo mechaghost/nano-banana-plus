@@ -12,7 +12,8 @@ A sophisticated local web application combining cloud-based AI image generation 
 - **Rate Limit Queue**: An active global `asyncio` traffic queue safely enforces a minimum Google Gemini Free-Tier delay (~4.0s) between bursts of generation requests, completely preventing `429 Too Many Requests` API crashes. The delay can be disabled in the settings menu.
 - **Local Background Removal**: Uses `rembg` (U^2-Net model) to strip backgrounds natively without any cloud overhead.
 - **Smart Cropping**: Trims transparency and isolates the subject using `Pillow` bounding box calculations.
-- **Agentic API**: The FastAPI backend automatically generates standard OpenAPI documentation, allowing modern AI tools and agents to seamlessly interact with your local server.
+- **Agentic API**: The FastAPI backend automatically generates standard OpenAPI documentation, allowing modern AI tools and agents to seamlessly interact with your local server over HTTP.
+- **MCP Server Compatibility**: Optionally run a fast `mcp_server.py` to expose these endpoints natively to Claude Desktop, Cursor, and other MCP-compliant clients.
 
 ## Architecture
 
@@ -32,7 +33,7 @@ Open a terminal in the root directory and run the following:
 cd server
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt  # Or manually install: fastapi "uvicorn[standard]" google-genai rembg Pillow python-multipart python-dotenv
+pip install -r requirements.txt  # Or manually install: fastapi "uvicorn[standard]" google-genai rembg Pillow python-multipart python-dotenv fastmcp
 python3 main.py
 ```
 *The backend will boot up on `http://127.0.0.1:43211`.*
@@ -52,3 +53,13 @@ npm run dev
 2. If this is your first time running the server, the UI will prompt you to input your `GEMINI_API_KEY`.
 3. Provide your key. This application automatically serializes it securely into your local `server/.env` file.
 4. Enjoy generating and cropping images!
+
+### 4. Running the MCP Server
+If you'd like to expose this studio natively to an MCP client rather than through standard HTTP, ensure you've installed `fastmcp` and your `GEMINI_API_KEY` is saved in `server/.env`, and run:
+
+```bash
+cd server
+fastmcp run mcp_server.py
+```
+
+You can point tools like Claude Desktop to this server by configuring them to execute `fastmcp run /path/to/mcp_server.py`.
