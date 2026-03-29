@@ -501,19 +501,74 @@ function App() {
               </small>
             </div>
 
-            {/* Agent API Key */}
+            {/* Agent Instructions */}
             {agentApiKey && (
               <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--panel-border)', paddingTop: '1rem' }}>
-                <label style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>Agent API Key</label>
+                <label style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>Agent Instructions</label>
                 <small style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '0.75rem' }}>
-                  Give this key to your AI agents. They send it as the X-API-Key header.
+                  Copy this block and paste it into your agent's system prompt, skill file, or tool config.
                 </small>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <code style={{ flex: 1, wordBreak: 'break-all', fontSize: '0.85rem', padding: '0.5rem 0.75rem', background: 'rgba(20, 17, 14, 0.6)', borderRadius: '8px', border: '1px solid var(--panel-border)' }}>{agentApiKey}</code>
+                <div style={{ position: 'relative' }}>
+                  <pre style={{
+                    background: 'rgba(20, 17, 14, 0.6)',
+                    border: '1px solid var(--panel-border)',
+                    borderRadius: '8px',
+                    padding: '1rem',
+                    fontSize: '0.8rem',
+                    lineHeight: '1.5',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    color: 'var(--text-primary)',
+                    maxHeight: '300px',
+                    overflowY: 'auto',
+                  }}>{`# AI Image Studio API
+
+## Base URL
+${window.location.origin}
+
+## Authentication
+All requests require the X-API-Key header:
+X-API-Key: ${agentApiKey}
+
+## Endpoints
+
+### Generate Image
+POST ${window.location.origin}/api/v1/generate
+Content-Type: multipart/form-data
+
+Parameters:
+- prompt (required): Text description of the image to generate
+- model: "imagen-4.0-fast-generate-001" (default), "imagen-4.0-generate-001", "imagen-4.0-ultra-generate-001"
+- aspect_ratio: "1:1" (default), "3:4", "4:3", "9:16", "16:9"
+- output_format: "png" (default), "webp"
+- target_width / target_height: Optional exact pixel dimensions (auto center-crops)
+- file: Optional base image for image-to-image generation
+
+Response: Image bytes (Content-Type: image/png or image/webp)
+
+### Remove Background
+POST ${window.location.origin}/api/v1/process
+Content-Type: multipart/form-data
+
+Parameters:
+- file (required): The image to process
+- output_format: "png" (default), "webp"
+
+Response: Transparent image bytes with background removed and trimmed
+
+### API Info (no auth required)
+GET ${window.location.origin}/api/v1/info
+
+## Example (curl)
+curl -X POST ${window.location.origin}/api/v1/generate \\
+  -H "X-API-Key: ${agentApiKey}" \\
+  -F "prompt=A golden retriever on a mountain" \\
+  -F "output_format=png" \\
+  --output image.png`}</pre>
                   <button
                     className="btn btn-secondary"
-                    style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
-                    onClick={() => navigator.clipboard.writeText(agentApiKey)}
+                    style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', padding: '0.3rem 0.5rem', fontSize: '0.75rem' }}
+                    onClick={() => navigator.clipboard.writeText(`# AI Image Studio API\n\n## Base URL\n${window.location.origin}\n\n## Authentication\nAll requests require the X-API-Key header:\nX-API-Key: ${agentApiKey}\n\n## Endpoints\n\n### Generate Image\nPOST ${window.location.origin}/api/v1/generate\nContent-Type: multipart/form-data\n\nParameters:\n- prompt (required): Text description of the image to generate\n- model: "imagen-4.0-fast-generate-001" (default), "imagen-4.0-generate-001", "imagen-4.0-ultra-generate-001"\n- aspect_ratio: "1:1" (default), "3:4", "4:3", "9:16", "16:9"\n- output_format: "png" (default), "webp"\n- target_width / target_height: Optional exact pixel dimensions (auto center-crops)\n- file: Optional base image for image-to-image generation\n\nResponse: Image bytes (Content-Type: image/png or image/webp)\n\n### Remove Background\nPOST ${window.location.origin}/api/v1/process\nContent-Type: multipart/form-data\n\nParameters:\n- file (required): The image to process\n- output_format: "png" (default), "webp"\n\nResponse: Transparent image bytes with background removed and trimmed\n\n### API Info (no auth required)\nGET ${window.location.origin}/api/v1/info\n\n## Example (curl)\ncurl -X POST ${window.location.origin}/api/v1/generate \\\\\n  -H "X-API-Key: ${agentApiKey}" \\\\\n  -F "prompt=A golden retriever on a mountain" \\\\\n  -F "output_format=png" \\\\\n  --output image.png`)}
                   >
                     <Copy size={14} /> Copy
                   </button>
