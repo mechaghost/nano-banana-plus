@@ -1,0 +1,7 @@
+[build]
+buildCommand = "cd web && npm ci && npm run build"
+
+[deploy]
+startCommand = "cd server && python main.py"
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 30

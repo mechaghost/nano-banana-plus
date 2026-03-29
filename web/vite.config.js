@@ -8,5 +8,9 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 43210,
     strictPort: true,
+    proxy: {
+      '/api': 'http://127.0.0.1:43211',
+      '/auth': 'http://127.0.0.1:43211',
+    },
   },
 })

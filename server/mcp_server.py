@@ -14,7 +14,7 @@ init_gemini_client()
 @mcp.tool()
 async def generate_image(
     prompt: str,
-    model: str = "imagen-4.0-generate-001",
+    model: str = "imagen-4.0-fast-generate-001",
     aspect_ratio: str = "1:1",
     output_resolution: str = "",
     output_format: str = "png",
@@ -27,7 +27,7 @@ async def generate_image(
 
     Args:
         prompt: Detailed description of the image to generate.
-        model: 'imagen-4.0-generate-001' (Standard), 'imagen-4.0-fast-generate-001' (Drafts), 'imagen-4.0-ultra-generate-001' (High Quality).
+        model: 'imagen-4.0-fast-generate-001' (Standard), 'imagen-4.0-fast-generate-001' (Drafts), 'imagen-4.0-ultra-generate-001' (High Quality).
         aspect_ratio: Defaults to 1:1. Valid options include 1:1, 3:4, 4:3, 9:16, 16:9.
         output_resolution: Defaults to "" (1K). Can be "2K" if the Ultra model is used.
         output_format: "png" (default) or "webp".

@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+google-genai
+Pillow
+python-multipart
+httpx
+PyJWT

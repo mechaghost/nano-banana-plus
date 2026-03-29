@@ -1,19 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --background: #0f172a;
-  --panel-bg: rgba(30, 41, 59, 0.7);
-  --panel-border: rgba(255, 255, 255, 0.1);
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --accent-1: #3b82f6;
-  /* Blue */
-  --accent-2: #8b5cf6;
-  /* Purple */
-  --accent-3: #ec4899;
-  /* Pink */
+  --background: #1a1714;
+  --panel-bg: rgba(42, 36, 28, 0.75);
+  --panel-border: rgba(255, 235, 200, 0.1);
+  --text-primary: #f5efe6;
+  --text-secondary: #a89a85;
+  --accent-1: #c8956c;
+  /* Warm terracotta */
+  --accent-2: #8b7355;
+  /* Earthy brown */
+  --accent-3: #6b8f71;
+  /* Sage green */
 
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -29,9 +29,9 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   /* Dynamic gradient background */
-  background: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
-    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15), transparent 25%),
-    radial-gradient(circle at 50% 80%, rgba(236, 72, 153, 0.1), transparent 25%);
+  background: radial-gradient(circle at 15% 50%, rgba(200, 149, 108, 0.1), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(139, 115, 85, 0.1), transparent 25%),
+    radial-gradient(circle at 50% 80%, rgba(107, 143, 113, 0.08), transparent 25%);
   background-color: var(--background);
   background-attachment: fixed;
   overflow-x: hidden;
@@ -52,17 +52,14 @@ header {
   animation: fadeInDown 0.8s ease-out;
 }
 
-.header-logo {
-  max-width: 320px;
-  width: 100%;
-  height: auto;
-  filter: drop-shadow(0 4px 24px rgba(59, 130, 246, 0.3));
-  transition: filter 0.3s ease, transform 0.3s ease;
-}
-
-.header-logo:hover {
-  filter: drop-shadow(0 6px 32px rgba(139, 92, 246, 0.5));
-  transform: scale(1.03);
+.header-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent-1), var(--text-primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
 }
 
 h1 {
@@ -146,7 +143,7 @@ input,
 select,
 textarea {
   width: 100%;
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(20, 17, 14, 0.6);
   border: 1px solid var(--panel-border);
   color: var(--text-primary);
   padding: 0.75rem 1rem;
@@ -166,7 +163,7 @@ input:focus,
 select:focus,
 textarea:focus {
   border-color: var(--accent-1);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 0 2px rgba(200, 149, 108, 0.2);
 }
 
 /* Buttons */
@@ -193,11 +190,11 @@ textarea:focus {
 
 .btn-primary {
   background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 15px rgba(200, 149, 108, 0.25);
 }
 
 .btn-primary:hover:not(:disabled) {
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 6px 20px rgba(200, 149, 108, 0.4);
   transform: translateY(-2px);
 }
 
@@ -214,7 +211,7 @@ textarea:focus {
 /* Image Preview Area */
 .preview-container {
   flex: 1;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(20, 17, 14, 0.4);
   border: 2px dashed var(--panel-border);
   border-radius: 16px;
   display: flex;
@@ -271,7 +268,7 @@ textarea:focus {
 .loader-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(20, 17, 14, 0.85);
   backdrop-filter: blur(4px);
   display: flex;
   flex-direction: column;
@@ -307,7 +304,7 @@ textarea:focus {
 
 .dropzone:hover {
   border-color: var(--accent-1);
-  background: rgba(59, 130, 246, 0.05);
+  background: rgba(200, 149, 108, 0.05);
 }
 
 .dropzone input[type="file"] {
@@ -380,13 +377,15 @@ textarea:focus {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(20, 17, 14, 0.85);
   backdrop-filter: blur(8px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 100;
   animation: fadeIn 0.3s ease-out;
+  overflow-y: auto;
+  padding: 2rem 1rem;
 }
 
 .modal-content {

@@ -1,24 +1,165 @@
 import { useState, useRef, useEffect } from 'react';
-import { Sparkles, UploadCloud, Download, Image as ImageIcon, Scissors, Loader2, RefreshCw, Key, Settings } from 'lucide-react';
+import { UploadCloud, Download, Image as ImageIcon, Loader2, RefreshCw, Plus, Trash2, Copy } from 'lucide-react';
 import './index.css';
 
+// Auth-aware fetch wrapper
+const apiFetch = (url, options = {}) => {
+  const token = localStorage.getItem('auth_token');
+  const headers = { ...(options.headers || {}) };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetch(url, { ...options, headers });
+};
+
+function LoginForm({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [step, setStep] = useState('email'); // 'email' | 'otp'
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const requestOTP = async () => {
+    if (!email.trim()) return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/auth/request-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      if (res.ok) {
+        setStep('otp');
+      } else {
+        setError('Failed to send OTP. Please try again.');
+      }
+    } catch {
+      setError('Could not reach server.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOTP = async () => {
+    if (!code.trim()) return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), code: code.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem('auth_token', data.token);
+        onLogin();
+      } else {
+        setError('Invalid or expired code. Please try again.');
+      }
+    } catch {
+      setError('Could not reach server.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+      <div className="glass-panel modal-content" style={{ maxWidth: '400px', width: '100%' }}>
+        <div className="panel-header">
+          <h2>Sign In</h2>
+        </div>
+        {error && (
+          <p style={{ color: '#ef4444', fontSize: '0.9rem', marginBottom: '1rem' }}>{error}</p>
+        )}
+        {step === 'email' ? (
+          <>
+            <p className="subtitle" style={{ marginBottom: '1rem' }}>
+              Enter your admin email to receive a login code.
+            </p>
+            <div className="input-group">
+              <label>Email</label>
+              <input
+                type="email"
+                placeholder="admin@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && requestOTP()}
+              />
+            </div>
+            <button
+              className="btn btn-primary"
+              onClick={requestOTP}
+              disabled={loading || !email.trim()}
+              style={{ marginTop: '1rem', width: '100%' }}
+            >
+              {loading ? <><Loader2 className="spinner" /> Sending...</> : 'Send Login Code'}
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="subtitle" style={{ marginBottom: '1rem' }}>
+              Check your email for a 6-digit code.
+            </p>
+            <div className="input-group">
+              <label>Login Code</label>
+              <input
+                type="text"
+                placeholder="000000"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && verifyOTP()}
+                maxLength={6}
+                style={{ textAlign: 'center', fontSize: '1.5rem', letterSpacing: '0.5em' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+              <button className="btn btn-secondary" onClick={() => { setStep('email'); setCode(''); setError(''); }} style={{ flex: 1 }}>
+                Back
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={verifyOTP}
+                disabled={loading || !code.trim()}
+                style={{ flex: 1 }}
+              >
+                {loading ? <><Loader2 className="spinner" /> Verifying...</> : 'Verify'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App() {
+  // Auth State
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('auth_token'));
+
   // Config State
-  const [hasApiKey, setHasApiKey] = useState(true); // Assume true initially to prevent flash
+  const [hasApiKey, setHasApiKey] = useState(true);
+  const [hasRemovebgKey, setHasRemovebgKey] = useState(true);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const [removebgKeyInput, setRemovebgKeyInput] = useState('');
   const [autoSaveDirInput, setAutoSaveDirInput] = useState('');
   const [rateLimitThrottle, setRateLimitThrottle] = useState(4.0);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
 
+  // API Keys management
+  const [apiKeys, setApiKeys] = useState([]);
+  const [newKeyLabel, setNewKeyLabel] = useState('');
+  const [newlyCreatedKey, setNewlyCreatedKey] = useState(null);
+
   // Generation State
   const [prompt, setPrompt] = useState('');
-  const [model, setModel] = useState('imagen-4.0-generate-001');
+  const [model, setModel] = useState('imagen-4.0-fast-generate-001');
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [targetWidth, setTargetWidth] = useState('');
   const [targetHeight, setTargetHeight] = useState('');
-  const [outputResolution, setOutputResolution] = useState(''); // "" for default (1K), "2K" for Ultra model
-  const [outputFormat, setOutputFormat] = useState('png'); // 'png' or 'webp'
+  const [outputResolution, setOutputResolution] = useState('');
+  const [outputFormat, setOutputFormat] = useState('png');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState(null);
   const [baseImageFile, setBaseImageFile] = useState(null);
@@ -33,6 +174,17 @@ function App() {
   // Console Log State
   const [logs, setLogs] = useState([]);
   const logsEndRef = useRef(null);
+
+  // Handle 401 globally
+  const authFetch = async (url, options = {}) => {
+    const res = await apiFetch(url, options);
+    if (res.status === 401) {
+      localStorage.removeItem('auth_token');
+      setIsAuthenticated(false);
+      return null;
+    }
+    return res;
+  };
 
   // Intercept console messages
   useEffect(() => {
@@ -50,7 +202,7 @@ function App() {
         type,
         message,
         time: new Date().toLocaleTimeString([], { hour12: false })
-      }].slice(-50)); // Keep last 50 logs
+      }].slice(-50));
     };
 
     console.log = (...args) => {
@@ -75,16 +227,21 @@ function App() {
     };
   }, []);
 
-  // Check config on mount
+  // Check config on mount (only when authenticated)
   useEffect(() => {
-    checkConfig();
-  }, []);
+    if (isAuthenticated) {
+      checkConfig();
+      loadApiKeys();
+    }
+  }, [isAuthenticated]);
 
   const checkConfig = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:43211/api/v1/config');
+      const res = await authFetch('/api/v1/config');
+      if (!res) return;
       const data = await res.json();
       setHasApiKey(data.has_api_key);
+      setHasRemovebgKey(data.has_removebg_key);
       setAutoSaveDirInput(data.auto_save_dir || '');
       if (data.rate_limit_throttle !== undefined) {
         setRateLimitThrottle(data.rate_limit_throttle);
@@ -98,29 +255,71 @@ function App() {
   };
 
   const saveConfig = async () => {
-    if (!apiKeyInput.trim()) return;
     setIsSavingConfig(true);
     try {
-      const res = await fetch('http://127.0.0.1:43211/api/v1/config', {
+      const res = await authFetch('/api/v1/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           api_key: apiKeyInput.trim(),
+          removebg_api_key: removebgKeyInput.trim(),
           auto_save_dir: autoSaveDirInput.trim(),
           rate_limit_throttle: parseFloat(rateLimitThrottle) || 4.0
         }),
       });
+      if (!res) return;
       const data = await res.json();
       if (data.status === 'success') {
         setHasApiKey(data.has_api_key);
-        setShowConfigModal(!data.has_api_key);
-        setApiKeyInput(''); // clear it
+        setShowConfigModal(false);
+        setApiKeyInput('');
+        setRemovebgKeyInput('');
+        checkConfig(); // refresh state
       }
     } catch (e) {
       console.error("Failed to save config", e);
-      alert("Failed to save API key to the server.");
+      alert("Failed to save settings to the server.");
     } finally {
       setIsSavingConfig(false);
+    }
+  };
+
+  // API key management
+  const loadApiKeys = async () => {
+    try {
+      const res = await authFetch('/api/v1/api-keys');
+      if (!res) return;
+      const data = await res.json();
+      setApiKeys(data.keys || []);
+    } catch (e) {
+      console.error("Failed to load API keys", e);
+    }
+  };
+
+  const createApiKey = async () => {
+    try {
+      const res = await authFetch('/api/v1/api-keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: newKeyLabel.trim() }),
+      });
+      if (!res) return;
+      const data = await res.json();
+      setNewlyCreatedKey(data.key);
+      setNewKeyLabel('');
+      loadApiKeys();
+    } catch (e) {
+      console.error("Failed to create API key", e);
+    }
+  };
+
+  const deleteApiKey = async (key) => {
+    if (!confirm('Revoke this API key? Any agents using it will lose access.')) return;
+    try {
+      await authFetch(`/api/v1/api-keys/${encodeURIComponent(key)}`, { method: 'DELETE' });
+      loadApiKeys();
+    } catch (e) {
+      console.error("Failed to revoke API key", e);
     }
   };
 
@@ -138,14 +337,12 @@ function App() {
       formData.append('prompt', prompt);
       formData.append('model', model);
 
-      // Calculate closest aspect ratio if explicitly providing dimensions
       let finalAspectRatio = aspectRatio;
       if (targetWidth && targetHeight) {
         const w = parseInt(targetWidth);
         const h = parseInt(targetHeight);
         if (!isNaN(w) && !isNaN(h) && w > 0 && h > 0) {
           const targetRatio = w / h;
-          // Available Gemini aspect ratios and their float values
           const ratios = {
             "1:1": 1.0,
             "4:3": 4 / 3,
@@ -153,8 +350,6 @@ function App() {
             "16:9": 16 / 9,
             "9:16": 9 / 16
           };
-
-          // Find the closest ratio to minimize cropping loss
           let closestMatch = "1:1";
           let minDiff = Infinity;
           for (const [ratioStr, ratioVal] of Object.entries(ratios)) {
@@ -178,19 +373,17 @@ function App() {
         formData.append('file', baseImageFile);
       }
 
-      const response = await fetch('http://127.0.0.1:43211/api/v1/generate', {
+      const response = await authFetch('/api/v1/generate', {
         method: 'POST',
-        // No Content-Type header needed for FormData; browser sets it with boundary
         body: formData,
       });
 
+      if (!response) return;
       if (!response.ok) throw new Error('Generation failed');
 
       const blob = await response.blob();
       const imageUrl = URL.createObjectURL(blob);
       setGeneratedImage(imageUrl);
-
-      // Auto-set as source for processing if we want to chain them
       setSourceImageFile(new File([blob], `generated.${outputFormat}`, { type: `image/${outputFormat}` }));
 
     } catch (error) {
@@ -210,11 +403,12 @@ function App() {
       formData.append('file', sourceImageFile);
       formData.append('output_format', outputFormat);
 
-      const response = await fetch('http://127.0.0.1:43211/api/v1/process', {
+      const response = await authFetch('/api/v1/process', {
         method: 'POST',
         body: formData,
       });
 
+      if (!response) return;
       if (!response.ok) throw new Error('Processing failed');
 
       const blob = await response.blob();
@@ -239,6 +433,16 @@ function App() {
     setSourceImageFile(null);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
+    setIsAuthenticated(false);
+  };
+
+  // Show login form if not authenticated
+  if (!isAuthenticated) {
+    return <LoginForm onLogin={() => setIsAuthenticated(true)} />;
+  }
+
   return (
     <div className="app-container">
       {/* Config Modal Overlay */}
@@ -246,17 +450,17 @@ function App() {
         <div className="modal-overlay">
           <div className="glass-panel modal-content">
             <div className="panel-header">
-              <Key size={24} />
               <h2>Configuration</h2>
             </div>
             <p className="subtitle" style={{ marginBottom: '1rem' }}>
-              To use Image Generation, you must provide a Gemini API Key.
-              This key will be saved locally to your `server/.env` file.
+              Configure your API keys and settings.
             </p>
+
+            {/* Gemini API Key */}
             <div className="input-group">
               <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 Gemini API Key
-                {hasApiKey && <span style={{ fontSize: '0.8rem', color: 'var(--success-color, #4ade80)' }}>✓ Currently Set</span>}
+                {hasApiKey && <span style={{ fontSize: '0.8rem', color: 'var(--success-color, #4ade80)' }}>Currently Set</span>}
               </label>
               <input
                 type="password"
@@ -273,32 +477,44 @@ function App() {
                 </small>
               )}
             </div>
-            <div
-              className="input-group"
-              style={{ marginTop: '1rem' }}
-            >
+
+            {/* remove.bg API Key */}
+            <div className="input-group" style={{ marginTop: '1rem' }}>
+              <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                remove.bg API Key
+                {hasRemovebgKey && <span style={{ fontSize: '0.8rem', color: 'var(--success-color, #4ade80)' }}>Currently Set</span>}
+              </label>
+              <input
+                type="password"
+                placeholder={hasRemovebgKey ? "Key is active (Type to replace)" : "Enter remove.bg API Key"}
+                value={removebgKeyInput}
+                onChange={(e) => setRemovebgKeyInput(e.target.value)}
+              />
+              <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
+                Required for background removal. Get a free key at remove.bg
+              </small>
+            </div>
+
+            {/* Auto-Save Directory */}
+            <div className="input-group" style={{ marginTop: '1rem' }}>
               <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Auto-Save Directory Path <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}>(Optional)</span></span>
-                {autoSaveDirInput ? <span style={{ fontSize: '0.8rem', color: 'var(--success-color, #4ade80)' }}>✓ Active</span> : <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Disabled</span>}
+                {autoSaveDirInput ? <span style={{ fontSize: '0.8rem', color: 'var(--success-color, #4ade80)' }}>Active</span> : <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Disabled</span>}
               </label>
               <input
                 type="text"
                 placeholder="e.g. /Users/username/Desktop/AI_Generations"
                 value={autoSaveDirInput}
                 onChange={(e) => setAutoSaveDirInput(e.target.value)}
-                style={{
-                  fontStyle: !autoSaveDirInput ? 'italic' : 'normal'
-                }}
+                style={{ fontStyle: !autoSaveDirInput ? 'italic' : 'normal' }}
               />
               <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
                 Paste the absolute folder path. Leave completely blank to disable auto-saving.
               </small>
             </div>
 
-            <div
-              className="input-group"
-              style={{ marginTop: '1rem' }}
-            >
+            {/* Rate Limit */}
+            <div className="input-group" style={{ marginTop: '1rem' }}>
               <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>API Rate Limit Throttle <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}>(Queue Delay)</span></span>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{rateLimitThrottle}s</span>
@@ -315,16 +531,95 @@ function App() {
               </small>
             </div>
 
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
-              {hasApiKey && (
-                <button className="btn btn-secondary" onClick={() => setShowConfigModal(false)}>
-                  Cancel
-                </button>
+            {/* API Keys Management */}
+            <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--panel-border)', paddingTop: '1rem' }}>
+              <label style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>Agent API Keys</label>
+              <small style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '0.75rem' }}>
+                Generate keys for your AI agents to access this API remotely via the X-API-Key header.
+              </small>
+
+              {/* Newly created key banner */}
+              {newlyCreatedKey && (
+                <div style={{
+                  background: 'rgba(74, 222, 128, 0.1)',
+                  border: '1px solid rgba(74, 222, 128, 0.3)',
+                  borderRadius: '8px',
+                  padding: '0.75rem',
+                  marginBottom: '0.75rem',
+                  fontSize: '0.85rem',
+                }}>
+                  <strong>New key created! Copy it now — it won't be shown in full again.</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <code style={{ flex: 1, wordBreak: 'break-all', fontSize: '0.8rem' }}>{newlyCreatedKey}</code>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
+                      onClick={() => { navigator.clipboard.writeText(newlyCreatedKey); }}
+                    >
+                      <Copy size={14} /> Copy
+                    </button>
+                  </div>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', marginTop: '0.5rem' }}
+                    onClick={() => setNewlyCreatedKey(null)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
               )}
+
+              {/* Existing keys list */}
+              {apiKeys.length > 0 && (
+                <div style={{ marginBottom: '0.75rem' }}>
+                  {apiKeys.map((k) => (
+                    <div key={k.key} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.4rem 0',
+                      borderBottom: '1px solid rgba(255,255,255,0.05)',
+                      fontSize: '0.85rem',
+                    }}>
+                      <div>
+                        <code>{k.key.slice(0, 12)}...{k.key.slice(-4)}</code>
+                        {k.label && <span style={{ color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>{k.label}</span>}
+                      </div>
+                      <button
+                        className="btn btn-secondary"
+                        style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem' }}
+                        onClick={() => deleteApiKey(k.key)}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Create new key */}
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="text"
+                  placeholder="Label (optional, e.g. 'Claude Agent')"
+                  value={newKeyLabel}
+                  onChange={(e) => setNewKeyLabel(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button className="btn btn-primary" style={{ padding: '0.4rem 0.75rem' }} onClick={createApiKey}>
+                  <Plus size={16} /> Generate Key
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => { setShowConfigModal(false); setNewlyCreatedKey(null); }}>
+                Close
+              </button>
               <button
                 className="btn btn-primary"
                 onClick={saveConfig}
-                disabled={(!apiKeyInput.trim() && !hasApiKey) || isSavingConfig}
+                disabled={isSavingConfig}
               >
                 {isSavingConfig ? <Loader2 className="spinner" /> : 'Save Settings'}
               </button>
@@ -334,23 +629,28 @@ function App() {
       )}
 
       <header>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
           <button
             className="btn btn-secondary"
             style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
             onClick={() => setShowConfigModal(true)}
           >
-            <Settings size={18} /> Settings
+            Settings
+          </button>
+          <button
+            className="btn btn-secondary"
+            style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+            onClick={handleLogout}
+          >
+            Sign Out
           </button>
         </div>
-        <img src="/logo.webp" alt="Price Guess - The Game Show!" className="header-logo" />
       </header>
 
       <div className="main-grid">
         {/* Generative Panel */}
         <section className="glass-panel">
           <div className="panel-header">
-            <Sparkles size={24} />
             <h2>Image Generation</h2>
           </div>
 
@@ -402,7 +702,7 @@ function App() {
                 onChange={(e) => setTargetWidth(e.target.value)}
                 style={{ flex: 1 }}
               />
-              <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>×</span>
+              <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>x</span>
               <input
                 type="number"
                 placeholder="Height (px)"
@@ -422,7 +722,7 @@ function App() {
             <select
               value={outputResolution}
               onChange={(e) => setOutputResolution(e.target.value)}
-              disabled={model !== 'imagen-4.0-ultra-generate-001'} // 2K is only supported by Ultra
+              disabled={model !== 'imagen-4.0-ultra-generate-001'}
               title={model !== 'imagen-4.0-ultra-generate-001' ? "High resolution is only supported by the Imagen 4.0 Ultra model." : ""}
             >
               <option value="">1K (Default)</option>
@@ -496,7 +796,7 @@ function App() {
             onClick={handleGenerate}
             disabled={isGenerating || !prompt}
           >
-            {isGenerating ? <><Loader2 className="spinner" /> Generating...</> : <><Sparkles size={20} /> Generate Image</>}
+            {isGenerating ? <><Loader2 className="spinner" /> Generating...</> : 'Generate Image'}
           </button>
 
           <div className="preview-container">
@@ -531,8 +831,7 @@ function App() {
         {/* Processing Panel */}
         <section className="glass-panel">
           <div className="panel-header">
-            <Scissors size={24} />
-            <h2>Local Processing</h2>
+            <h2>Background Removal</h2>
           </div>
 
           <div
@@ -588,7 +887,7 @@ function App() {
             onClick={handleProcess}
             disabled={isProcessing || !sourceImageFile}
           >
-            {isProcessing ? <><Loader2 className="spinner" /> Processing Local...</> : <><Scissors size={20} /> Remove Background & Cut</>}
+            {isProcessing ? <><Loader2 className="spinner" /> Processing...</> : 'Remove Background & Cut'}
           </button>
         </section>
       </div>
