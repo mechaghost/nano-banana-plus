@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from core import init_gemini_client, core_generate_image, core_process_image
 import core
 from auth import (
-    init_db, request_otp, verify_otp, require_auth,
+    request_otp, verify_otp, require_auth,
     generate_api_key, list_api_keys, revoke_api_key,
 )
 
@@ -30,7 +30,6 @@ app.add_middleware(
 
 # Initialize on startup
 init_gemini_client()
-init_db()
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +171,7 @@ def set_config(request: ConfigRequest):
             f.write(f'AUTO_SAVE_DIR="{request.auto_save_dir}"\n')
             f.write(f'RATE_LIMIT_DELAY="{request.rate_limit_throttle}"\n')
             # Preserve auth-related env vars across server reloads
-            for key in ("ADMIN_EMAIL", "JWT_SECRET", "RESEND_API_KEY", "RESEND_FROM_EMAIL"):
+            for key in ("ADMIN_EMAIL", "JWT_SECRET", "RESEND_API_KEY", "RESEND_FROM_EMAIL", "API_KEYS"):
                 val = os.environ.get(key, "")
                 if val:
                     f.write(f'{key}="{val}"\n')

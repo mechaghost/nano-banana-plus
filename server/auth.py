@@ -1,8 +1,6 @@
 import os
 import time
 import secrets
-import sqlite3
-from datetime import datetime
 from typing import Optional
 
 import httpx
@@ -20,71 +18,37 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 
 # ---------------------------------------------------------------------------
-# SQLite helpers for API key persistence
+# API key CRUD (env var backed)
 # ---------------------------------------------------------------------------
 
-def _db_path() -> str:
-    return os.environ.get("DATABASE_PATH", os.path.join(os.path.dirname(__file__), "data", "app.db"))
+def _get_keys_set() -> set[str]:
+    raw = os.environ.get("API_KEYS", "")
+    return {k.strip() for k in raw.split(",") if k.strip()}
 
 
-def _get_conn() -> sqlite3.Connection:
-    path = _db_path()
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
-    return conn
+def _save_keys(keys: set[str]) -> None:
+    os.environ["API_KEYS"] = ",".join(sorted(keys))
 
-
-def init_db() -> None:
-    conn = _get_conn()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS api_keys (
-            key TEXT PRIMARY KEY,
-            label TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
-    print(f"Database initialized at {_db_path()}")
-
-
-# ---------------------------------------------------------------------------
-# API key CRUD
-# ---------------------------------------------------------------------------
 
 def generate_api_key(label: str = "") -> str:
     key = f"nbp_{secrets.token_urlsafe(32)}"
-    conn = _get_conn()
-    conn.execute(
-        "INSERT INTO api_keys (key, label, created_at) VALUES (?, ?, ?)",
-        (key, label, datetime.utcnow().isoformat()),
-    )
-    conn.commit()
-    conn.close()
+    keys = _get_keys_set()
+    keys.add(key)
+    _save_keys(keys)
     return key
 
 
 def list_api_keys() -> list[dict]:
-    conn = _get_conn()
-    rows = conn.execute("SELECT key, label, created_at FROM api_keys ORDER BY created_at").fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    return [{"key": k} for k in sorted(_get_keys_set())]
 
 
 def revoke_api_key(key: str) -> bool:
-    conn = _get_conn()
-    cursor = conn.execute("DELETE FROM api_keys WHERE key = ?", (key,))
-    conn.commit()
-    conn.close()
-    return cursor.rowcount > 0
-
-
-def _valid_api_keys() -> set[str]:
-    conn = _get_conn()
-    rows = conn.execute("SELECT key FROM api_keys").fetchall()
-    conn.close()
-    return {r["key"] for r in rows}
+    keys = _get_keys_set()
+    if key not in keys:
+        return False
+    keys.discard(key)
+    _save_keys(keys)
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +123,7 @@ async def require_auth(
     """Returns an identity string. Raises 401 if unauthenticated."""
     # 1. Check X-API-Key header (AI agents)
     api_key = request.headers.get("X-API-Key")
-    if api_key and api_key in _valid_api_keys():
+    if api_key and api_key in _get_keys_set():
         return f"apikey:{api_key[:12]}..."
 
     # 2. Check JWT Bearer token (web UI)
