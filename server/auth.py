@@ -27,7 +27,56 @@ def _get_keys_set() -> set[str]:
 
 
 def _save_keys(keys: set[str]) -> None:
-    os.environ["API_KEYS"] = ",".join(sorted(keys))
+    value = ",".join(sorted(keys))
+    os.environ["API_KEYS"] = value
+    _persist_keys_to_railway(value)
+
+
+def _persist_keys_to_railway(value: str) -> None:
+    """Push API_KEYS to Railway env vars so they survive redeploys."""
+    if not os.environ.get("RAILWAY_ENVIRONMENT"):
+        return  # local dev — .env handles persistence
+
+    token = os.environ.get("RAILWAY_API_TOKEN", "")
+    project_id = os.environ.get("RAILWAY_PROJECT_ID", "")
+    env_id = os.environ.get("RAILWAY_ENVIRONMENT_ID", "")
+    service_id = os.environ.get("RAILWAY_SERVICE_ID", "")
+
+    if not all([token, project_id, env_id, service_id]):
+        print("[AUTH] Missing Railway API vars — API_KEYS not persisted to Railway")
+        return
+
+    try:
+        resp = httpx.post(
+            "https://backboard.railway.com/graphql/v2",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "query": """
+                    mutation($input: VariableUpsertInput!) {
+                        variableUpsert(input: $input)
+                    }
+                """,
+                "variables": {
+                    "input": {
+                        "projectId": project_id,
+                        "environmentId": env_id,
+                        "serviceId": service_id,
+                        "name": "API_KEYS",
+                        "value": value,
+                    }
+                },
+            },
+            timeout=10.0,
+        )
+        if resp.status_code == 200:
+            print("[AUTH] API_KEYS persisted to Railway")
+        else:
+            print(f"[AUTH] Railway API error: {resp.status_code} {resp.text}")
+    except Exception as e:
+        print(f"[AUTH] Failed to persist API_KEYS to Railway: {e}")
 
 
 def generate_api_key(label: str = "") -> str:
