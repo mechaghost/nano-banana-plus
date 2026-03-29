@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { UploadCloud, Download, Image as ImageIcon, Loader2, RefreshCw, Plus, Trash2, Copy } from 'lucide-react';
+import { UploadCloud, Download, Image as ImageIcon, Loader2, RefreshCw, Copy } from 'lucide-react';
 import './index.css';
 
 // Auth-aware fetch wrapper
@@ -147,10 +147,8 @@ function App() {
   const [rateLimitThrottle, setRateLimitThrottle] = useState(4.0);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
 
-  // API Keys management
-  const [apiKeys, setApiKeys] = useState([]);
-  const [newKeyLabel, setNewKeyLabel] = useState('');
-  const [newlyCreatedKey, setNewlyCreatedKey] = useState(null);
+  // API Key
+  const [agentApiKey, setAgentApiKey] = useState('');
 
   // Generation State
   const [prompt, setPrompt] = useState('');
@@ -231,7 +229,7 @@ function App() {
   useEffect(() => {
     if (isAuthenticated) {
       checkConfig();
-      loadApiKeys();
+      loadApiKey();
     }
   }, [isAuthenticated]);
 
@@ -251,6 +249,17 @@ function App() {
       }
     } catch (e) {
       console.error("Failed to check config", e);
+    }
+  };
+
+  const loadApiKey = async () => {
+    try {
+      const res = await authFetch('/api/v1/api-key');
+      if (!res) return;
+      const data = await res.json();
+      setAgentApiKey(data.key || '');
+    } catch (e) {
+      console.error("Failed to load API key", e);
     }
   };
 
@@ -274,52 +283,13 @@ function App() {
         setShowConfigModal(false);
         setApiKeyInput('');
         setRemovebgKeyInput('');
-        checkConfig(); // refresh state
+        checkConfig();
       }
     } catch (e) {
       console.error("Failed to save config", e);
       alert("Failed to save settings to the server.");
     } finally {
       setIsSavingConfig(false);
-    }
-  };
-
-  // API key management
-  const loadApiKeys = async () => {
-    try {
-      const res = await authFetch('/api/v1/api-keys');
-      if (!res) return;
-      const data = await res.json();
-      setApiKeys(data.keys || []);
-    } catch (e) {
-      console.error("Failed to load API keys", e);
-    }
-  };
-
-  const createApiKey = async () => {
-    try {
-      const res = await authFetch('/api/v1/api-keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: newKeyLabel.trim() }),
-      });
-      if (!res) return;
-      const data = await res.json();
-      setNewlyCreatedKey(data.key);
-      setNewKeyLabel('');
-      loadApiKeys();
-    } catch (e) {
-      console.error("Failed to create API key", e);
-    }
-  };
-
-  const deleteApiKey = async (key) => {
-    if (!confirm('Revoke this API key? Any agents using it will lose access.')) return;
-    try {
-      await authFetch(`/api/v1/api-keys/${encodeURIComponent(key)}`, { method: 'DELETE' });
-      loadApiKeys();
-    } catch (e) {
-      console.error("Failed to revoke API key", e);
     }
   };
 
@@ -531,89 +501,28 @@ function App() {
               </small>
             </div>
 
-            {/* API Keys Management */}
-            <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--panel-border)', paddingTop: '1rem' }}>
-              <label style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>Agent API Keys</label>
-              <small style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '0.75rem' }}>
-                Generate keys for your AI agents to access this API remotely via the X-API-Key header.
-              </small>
-
-              {/* Newly created key banner */}
-              {newlyCreatedKey && (
-                <div style={{
-                  background: 'rgba(74, 222, 128, 0.1)',
-                  border: '1px solid rgba(74, 222, 128, 0.3)',
-                  borderRadius: '8px',
-                  padding: '0.75rem',
-                  marginBottom: '0.75rem',
-                  fontSize: '0.85rem',
-                }}>
-                  <strong>New key created! Copy it now — it won't be shown in full again.</strong>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                    <code style={{ flex: 1, wordBreak: 'break-all', fontSize: '0.8rem' }}>{newlyCreatedKey}</code>
-                    <button
-                      className="btn btn-secondary"
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
-                      onClick={() => { navigator.clipboard.writeText(newlyCreatedKey); }}
-                    >
-                      <Copy size={14} /> Copy
-                    </button>
-                  </div>
+            {/* Agent API Key */}
+            {agentApiKey && (
+              <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--panel-border)', paddingTop: '1rem' }}>
+                <label style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>Agent API Key</label>
+                <small style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '0.75rem' }}>
+                  Give this key to your AI agents. They send it as the X-API-Key header.
+                </small>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <code style={{ flex: 1, wordBreak: 'break-all', fontSize: '0.85rem', padding: '0.5rem 0.75rem', background: 'rgba(20, 17, 14, 0.6)', borderRadius: '8px', border: '1px solid var(--panel-border)' }}>{agentApiKey}</code>
                   <button
                     className="btn btn-secondary"
-                    style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', marginTop: '0.5rem' }}
-                    onClick={() => setNewlyCreatedKey(null)}
+                    style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }}
+                    onClick={() => navigator.clipboard.writeText(agentApiKey)}
                   >
-                    Dismiss
+                    <Copy size={14} /> Copy
                   </button>
                 </div>
-              )}
-
-              {/* Existing keys list */}
-              {apiKeys.length > 0 && (
-                <div style={{ marginBottom: '0.75rem' }}>
-                  {apiKeys.map((k) => (
-                    <div key={k.key} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '0.4rem 0',
-                      borderBottom: '1px solid rgba(255,255,255,0.05)',
-                      fontSize: '0.85rem',
-                    }}>
-                      <div>
-                        <code>{k.key.slice(0, 12)}...{k.key.slice(-4)}</code>
-                        {k.label && <span style={{ color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>{k.label}</span>}
-                      </div>
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem' }}
-                        onClick={() => deleteApiKey(k.key)}
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Create new key */}
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input
-                  type="text"
-                  placeholder="Label (optional, e.g. 'Claude Agent')"
-                  value={newKeyLabel}
-                  onChange={(e) => setNewKeyLabel(e.target.value)}
-                  style={{ flex: 1 }}
-                />
-                <button className="btn btn-primary" style={{ padding: '0.4rem 0.75rem' }} onClick={createApiKey}>
-                  <Plus size={16} /> Generate Key
-                </button>
               </div>
-            </div>
+            )}
 
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
-              <button className="btn btn-secondary" onClick={() => { setShowConfigModal(false); setNewlyCreatedKey(null); }}>
+              <button className="btn btn-secondary" onClick={() => setShowConfigModal(false)}>
                 Close
               </button>
               <button

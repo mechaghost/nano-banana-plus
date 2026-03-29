@@ -18,86 +18,16 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 
 # ---------------------------------------------------------------------------
-# API key CRUD (env var backed)
+# Single API key (env var backed)
 # ---------------------------------------------------------------------------
 
-def _get_keys_set() -> set[str]:
-    raw = os.environ.get("API_KEYS", "")
-    return {k.strip() for k in raw.split(",") if k.strip()}
-
-
-def _save_keys(keys: set[str]) -> None:
-    value = ",".join(sorted(keys))
-    os.environ["API_KEYS"] = value
-    _persist_keys_to_railway(value)
-
-
-def _persist_keys_to_railway(value: str) -> None:
-    """Push API_KEYS to Railway env vars so they survive redeploys."""
-    if not os.environ.get("RAILWAY_ENVIRONMENT"):
-        return  # local dev — .env handles persistence
-
-    token = os.environ.get("RAILWAY_API_TOKEN", "")
-    project_id = os.environ.get("RAILWAY_PROJECT_ID", "")
-    env_id = os.environ.get("RAILWAY_ENVIRONMENT_ID", "")
-    service_id = os.environ.get("RAILWAY_SERVICE_ID", "")
-
-    if not all([token, project_id, env_id, service_id]):
-        print("[AUTH] Missing Railway API vars — API_KEYS not persisted to Railway")
-        return
-
-    try:
-        resp = httpx.post(
-            "https://backboard.railway.com/graphql/v2",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "query": """
-                    mutation($input: VariableUpsertInput!) {
-                        variableUpsert(input: $input)
-                    }
-                """,
-                "variables": {
-                    "input": {
-                        "projectId": project_id,
-                        "environmentId": env_id,
-                        "serviceId": service_id,
-                        "name": "API_KEYS",
-                        "value": value,
-                    }
-                },
-            },
-            timeout=10.0,
-        )
-        if resp.status_code == 200:
-            print("[AUTH] API_KEYS persisted to Railway")
-        else:
-            print(f"[AUTH] Railway API error: {resp.status_code} {resp.text}")
-    except Exception as e:
-        print(f"[AUTH] Failed to persist API_KEYS to Railway: {e}")
-
-
-def generate_api_key(label: str = "") -> str:
-    key = f"nbp_{secrets.token_urlsafe(32)}"
-    keys = _get_keys_set()
-    keys.add(key)
-    _save_keys(keys)
+def get_api_key() -> str:
+    """Return the API key, generating one if it doesn't exist."""
+    key = os.environ.get("API_KEY", "")
+    if not key:
+        key = f"nbp_{secrets.token_urlsafe(32)}"
+        os.environ["API_KEY"] = key
     return key
-
-
-def list_api_keys() -> list[dict]:
-    return [{"key": k} for k in sorted(_get_keys_set())]
-
-
-def revoke_api_key(key: str) -> bool:
-    keys = _get_keys_set()
-    if key not in keys:
-        return False
-    keys.discard(key)
-    _save_keys(keys)
-    return True
 
 
 # ---------------------------------------------------------------------------
@@ -171,9 +101,9 @@ async def require_auth(
 ) -> str:
     """Returns an identity string. Raises 401 if unauthenticated."""
     # 1. Check X-API-Key header (AI agents)
-    api_key = request.headers.get("X-API-Key")
-    if api_key and api_key in _get_keys_set():
-        return f"apikey:{api_key[:12]}..."
+    api_key_header = request.headers.get("X-API-Key")
+    if api_key_header and api_key_header == get_api_key():
+        return "apikey"
 
     # 2. Check JWT Bearer token (web UI)
     if credentials:

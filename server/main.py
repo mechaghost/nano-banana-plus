@@ -10,10 +10,7 @@ from dotenv import load_dotenv
 
 from core import init_gemini_client, core_generate_image, core_process_image
 import core
-from auth import (
-    request_otp, verify_otp, require_auth,
-    generate_api_key, list_api_keys, revoke_api_key,
-)
+from auth import request_otp, verify_otp, require_auth, get_api_key
 
 load_dotenv()
 
@@ -48,9 +45,6 @@ class OTPRequest(BaseModel):
 class OTPVerifyRequest(BaseModel):
     email: str
     code: str
-
-class APIKeyCreateRequest(BaseModel):
-    label: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +165,7 @@ def set_config(request: ConfigRequest):
             f.write(f'AUTO_SAVE_DIR="{request.auto_save_dir}"\n')
             f.write(f'RATE_LIMIT_DELAY="{request.rate_limit_throttle}"\n')
             # Preserve auth-related env vars across server reloads
-            for key in ("ADMIN_EMAIL", "JWT_SECRET", "RESEND_API_KEY", "RESEND_FROM_EMAIL", "API_KEYS"):
+            for key in ("ADMIN_EMAIL", "JWT_SECRET", "RESEND_API_KEY", "RESEND_FROM_EMAIL", "API_KEY"):
                 val = os.environ.get(key, "")
                 if val:
                     f.write(f'{key}="{val}"\n')
@@ -181,26 +175,12 @@ def set_config(request: ConfigRequest):
 
 
 # ---------------------------------------------------------------------------
-# API key management (protected)
+# API key (protected) — single key, read from env var
 # ---------------------------------------------------------------------------
 
-@app.get("/api/v1/api-keys", dependencies=[Depends(require_auth)])
-def get_api_keys():
-    return {"keys": list_api_keys()}
-
-
-@app.post("/api/v1/api-keys", dependencies=[Depends(require_auth)])
-def create_api_key(body: APIKeyCreateRequest = APIKeyCreateRequest()):
-    key = generate_api_key(label=body.label)
-    return {"key": key}
-
-
-@app.delete("/api/v1/api-keys/{key}", dependencies=[Depends(require_auth)])
-def delete_api_key(key: str):
-    revoked = revoke_api_key(key)
-    if not revoked:
-        raise HTTPException(status_code=404, detail="Key not found")
-    return {"status": "revoked"}
+@app.get("/api/v1/api-key", dependencies=[Depends(require_auth)])
+def get_api_key_endpoint():
+    return {"key": get_api_key()}
 
 
 # ---------------------------------------------------------------------------
