@@ -6,3 +6,5 @@ Pillow
 python-multipart
 httpx
 PyJWT
+rembg
+onnxruntime

@@ -35,7 +35,6 @@ init_gemini_client()
 
 class ConfigRequest(BaseModel):
     api_key: str = ""
-    removebg_api_key: str = ""
     auto_save_dir: str = ""
     rate_limit_throttle: float = 4.0
 
@@ -130,17 +129,14 @@ def api_info():
 @app.get("/api/v1/config", dependencies=[Depends(require_auth)])
 def get_config():
     api_key = os.environ.get("GEMINI_API_KEY", "")
-    removebg_key = os.environ.get("REMOVEBG_API_KEY", "")
     auto_save_dir = os.environ.get("AUTO_SAVE_DIR", "")
     try:
         rate_limit_throttle = float(os.environ.get("RATE_LIMIT_DELAY", 4.0))
     except (ValueError, TypeError):
         rate_limit_throttle = 4.0
     has_key = bool(api_key and api_key != "your_api_key_here" and api_key.strip() != "")
-    has_removebg_key = bool(removebg_key and removebg_key.strip() != "")
     return {
         "has_api_key": has_key,
-        "has_removebg_key": has_removebg_key,
         "auto_save_dir": auto_save_dir,
         "rate_limit_throttle": rate_limit_throttle,
     }
@@ -151,8 +147,6 @@ def set_config(request: ConfigRequest):
     # Update current process environment
     if request.api_key:
         os.environ["GEMINI_API_KEY"] = request.api_key
-    if request.removebg_api_key:
-        os.environ["REMOVEBG_API_KEY"] = request.removebg_api_key
     os.environ["AUTO_SAVE_DIR"] = request.auto_save_dir
     os.environ["RATE_LIMIT_DELAY"] = str(request.rate_limit_throttle)
 
@@ -161,7 +155,6 @@ def set_config(request: ConfigRequest):
         env_path = os.path.join(os.path.dirname(__file__), '.env')
         with open(env_path, 'w') as f:
             f.write(f'GEMINI_API_KEY="{os.environ.get("GEMINI_API_KEY", "")}"\n')
-            f.write(f'REMOVEBG_API_KEY="{os.environ.get("REMOVEBG_API_KEY", "")}"\n')
             f.write(f'AUTO_SAVE_DIR="{request.auto_save_dir}"\n')
             f.write(f'RATE_LIMIT_DELAY="{request.rate_limit_throttle}"\n')
             # Preserve auth-related env vars across server reloads

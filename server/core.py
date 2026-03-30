@@ -6,7 +6,7 @@ import asyncio
 from typing import Optional
 from google import genai
 from google.genai import types
-import httpx
+from rembg import remove
 from PIL import Image
 
 # Initialize Gemini Client lazily or from env.
@@ -188,22 +188,8 @@ async def core_process_image(
     """Removes background and trims to visible pixels.
     Returns a tuple of (trimmed_image_bytes, media_type)."""
 
-    # 1. Remove background via remove.bg API
-    removebg_key = os.environ.get("REMOVEBG_API_KEY", "")
-    if not removebg_key:
-        raise ValueError("REMOVEBG_API_KEY is not configured.")
-
-    async with httpx.AsyncClient(timeout=60.0) as http:
-        response = await http.post(
-            "https://api.remove.bg/v1.0/removebg",
-            headers={"X-Api-Key": removebg_key},
-            files={"image_file": ("image.png", image_bytes, "image/png")},
-            data={"size": "auto"},
-        )
-    if response.status_code != 200:
-        raise ValueError(f"remove.bg API error {response.status_code}: {response.text}")
-
-    no_bg_bytes = response.content
+    # 1. Remove background locally via rembg (U2-Net)
+    no_bg_bytes = await asyncio.to_thread(remove, image_bytes)
     
     # 2. Trim to only the visible pixels
     no_bg_image = Image.open(io.BytesIO(no_bg_bytes)).convert("RGBA")

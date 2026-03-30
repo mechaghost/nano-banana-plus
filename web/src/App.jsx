@@ -139,10 +139,8 @@ function App() {
 
   // Config State
   const [hasApiKey, setHasApiKey] = useState(true);
-  const [hasRemovebgKey, setHasRemovebgKey] = useState(true);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
-  const [removebgKeyInput, setRemovebgKeyInput] = useState('');
   const [autoSaveDirInput, setAutoSaveDirInput] = useState('');
   const [rateLimitThrottle, setRateLimitThrottle] = useState(4.0);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
@@ -239,7 +237,6 @@ function App() {
       if (!res) return;
       const data = await res.json();
       setHasApiKey(data.has_api_key);
-      setHasRemovebgKey(data.has_removebg_key);
       setAutoSaveDirInput(data.auto_save_dir || '');
       if (data.rate_limit_throttle !== undefined) {
         setRateLimitThrottle(data.rate_limit_throttle);
@@ -271,7 +268,6 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           api_key: apiKeyInput.trim(),
-          removebg_api_key: removebgKeyInput.trim(),
           auto_save_dir: autoSaveDirInput.trim(),
           rate_limit_throttle: parseFloat(rateLimitThrottle) || 4.0
         }),
@@ -446,23 +442,6 @@ function App() {
                   A valid API key is required to generate images.
                 </small>
               )}
-            </div>
-
-            {/* remove.bg API Key */}
-            <div className="input-group" style={{ marginTop: '1rem' }}>
-              <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                remove.bg API Key
-                {hasRemovebgKey && <span style={{ fontSize: '0.8rem', color: 'var(--success-color, #4ade80)' }}>Currently Set</span>}
-              </label>
-              <input
-                type="password"
-                placeholder={hasRemovebgKey ? "Key is active (Type to replace)" : "Enter remove.bg API Key"}
-                value={removebgKeyInput}
-                onChange={(e) => setRemovebgKeyInput(e.target.value)}
-              />
-              <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
-                Required for background removal. Get a free key at remove.bg
-              </small>
             </div>
 
             {/* Auto-Save Directory */}
