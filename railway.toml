@@ -1,7 +1,7 @@
 [build]
-buildCommand = "cd web && npm ci && npm run build"
+buildCommand = "cd web && npm ci && npm run build && python -c \"from rembg import remove; print('rembg model cached')\" 2>&1 || true"
 
 [deploy]
 startCommand = "cd server && python main.py"
 healthcheckPath = "/api/v1/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 120
