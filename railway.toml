@@ -1,5 +1,5 @@
 [build]
-buildCommand = "cd web && npm ci && npm run build && python scripts/cache_model.py"
+buildCommand = "cd web && npm ci && npm run build && cd .. && python scripts/cache_model.py"
 
 [deploy]
 startCommand = "cd server && python main.py"
