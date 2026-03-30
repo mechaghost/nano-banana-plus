@@ -1,5 +1,5 @@
 [build]
-buildCommand = "cd web && npm ci && npm run build && U2NET_HOME=/app/.u2net python -c \"from rembg import remove; print('rembg model cached')\""
+buildCommand = "cd web && npm ci && npm run build && python scripts/cache_model.py"
 
 [deploy]
 startCommand = "cd server && python main.py"
