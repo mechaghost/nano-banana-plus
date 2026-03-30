@@ -30,6 +30,9 @@ def init_gemini_client():
 rate_limit_lock = asyncio.Lock()
 last_request_time = 0.0
 
+# Semaphore to limit concurrent rembg inferences (each uses ~500MB RAM)
+rembg_semaphore = asyncio.Semaphore(1)
+
 async def wait_for_rate_limit(min_delay_seconds: float = 4.0):
     global last_request_time
     async with rate_limit_lock:
@@ -189,7 +192,9 @@ async def core_process_image(
     Returns a tuple of (trimmed_image_bytes, media_type)."""
 
     # 1. Remove background locally via rembg (U2-Net)
-    no_bg_bytes = await asyncio.to_thread(remove, image_bytes)
+    # Serialize to one-at-a-time — each inference uses ~500MB RAM
+    async with rembg_semaphore:
+        no_bg_bytes = await asyncio.to_thread(remove, image_bytes)
     
     # 2. Trim to only the visible pixels
     no_bg_image = Image.open(io.BytesIO(no_bg_bytes)).convert("RGBA")
