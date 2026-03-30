@@ -10,11 +10,15 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24
+MAX_OTP_ATTEMPTS = 5
 
-# In-memory OTP store: { email: { "code": str, "expires": float } }
+# In-memory OTP store: { email: { "code": str, "expires": float, "attempts": int } }
 _otp_store: dict[str, dict] = {}
 
 _bearer_scheme = HTTPBearer(auto_error=False)
+
+# Fix #2: Generate a random JWT secret at startup if not set (prevents hardcoded fallback)
+_jwt_secret = os.environ.get("JWT_SECRET", "") or secrets.token_urlsafe(32)
 
 
 # ---------------------------------------------------------------------------
@@ -43,12 +47,14 @@ async def request_otp(email: str) -> None:
     _otp_store[email.lower()] = {
         "code": code,
         "expires": time.time() + 300,
+        "attempts": 0,
     }
 
     resend_key = os.environ.get("RESEND_API_KEY", "")
     from_email = os.environ.get("RESEND_FROM_EMAIL", "noreply@example.com")
     if not resend_key:
-        print(f"[AUTH] RESEND_API_KEY not set. OTP for {email}: {code}")
+        # Fix #4: Don't log the OTP code itself
+        print(f"[AUTH] RESEND_API_KEY not set — OTP email not sent for {email}")
         return
 
     async with httpx.AsyncClient() as client:
@@ -66,7 +72,7 @@ async def request_otp(email: str) -> None:
             },
         )
         if resp.status_code >= 400:
-            print(f"[AUTH] Resend API error: {resp.status_code} {resp.text}")
+            print(f"[AUTH] Resend API error: {resp.status_code}")
 
 
 def verify_otp(email: str, code: str) -> Optional[str]:
@@ -77,15 +83,19 @@ def verify_otp(email: str, code: str) -> Optional[str]:
     if time.time() > entry["expires"]:
         _otp_store.pop(email.lower(), None)
         return None
+    # Fix #1: Lock out after MAX_OTP_ATTEMPTS
+    if entry.get("attempts", 0) >= MAX_OTP_ATTEMPTS:
+        _otp_store.pop(email.lower(), None)
+        return None
     if entry["code"] != code:
+        entry["attempts"] = entry.get("attempts", 0) + 1
         return None
 
     _otp_store.pop(email.lower(), None)
 
-    secret = os.environ.get("JWT_SECRET", "change-me-in-production")
     token = jwt.encode(
-        {"sub": email.lower(), "exp": time.time() + JWT_EXPIRY_HOURS * 3600},
-        secret,
+        {"sub": email.lower(), "exp": int(time.time()) + JWT_EXPIRY_HOURS * 3600},
+        _jwt_secret,
         algorithm=JWT_ALGORITHM,
     )
     return token
@@ -101,15 +111,15 @@ async def require_auth(
 ) -> str:
     """Returns an identity string. Raises 401 if unauthenticated."""
     # 1. Check X-API-Key header (AI agents)
+    # Fix #5: Constant-time comparison
     api_key_header = request.headers.get("X-API-Key")
-    if api_key_header and api_key_header == get_api_key():
+    if api_key_header and secrets.compare_digest(api_key_header, get_api_key()):
         return "apikey"
 
     # 2. Check JWT Bearer token (web UI)
     if credentials:
         try:
-            secret = os.environ.get("JWT_SECRET", "change-me-in-production")
-            payload = jwt.decode(credentials.credentials, secret, algorithms=[JWT_ALGORITHM])
+            payload = jwt.decode(credentials.credentials, _jwt_secret, algorithms=[JWT_ALGORITHM])
             return f"user:{payload['sub']}"
         except jwt.ExpiredSignatureError:
             raise HTTPException(status_code=401, detail="Token expired")

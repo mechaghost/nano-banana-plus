@@ -45,13 +45,22 @@ async def wait_for_rate_limit(min_delay_seconds: float = 4.0):
         last_request_time = time.time()
 
 def attempt_auto_save(image_bytes: bytes, prefix: str, ext: str = "png"):
+    # Disabled on Railway (ephemeral filesystem)
+    if os.environ.get("RAILWAY_ENVIRONMENT"):
+        return
+
     auto_save_dir = os.environ.get("AUTO_SAVE_DIR", "").strip()
     if not auto_save_dir:
         return
-        
-    # Expand ~ to user home directory if needed
-    save_dir = os.path.expanduser(auto_save_dir)
-    
+
+    save_dir = os.path.realpath(os.path.expanduser(auto_save_dir))
+
+    # Validate: must be under user's home directory
+    home = os.path.realpath(os.path.expanduser("~"))
+    if not save_dir.startswith(home):
+        print(f"Warning: Auto-save directory must be under {home}")
+        return
+
     if os.path.isdir(save_dir):
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{prefix}_{timestamp}.{ext}"
